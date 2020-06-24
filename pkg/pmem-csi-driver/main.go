@@ -21,8 +21,10 @@ import (
 
 var (
 	config = Config{
-		Mode:          Controller,
-		DeviceManager: api.DeviceModeLVM,
+		Mode:           Controller,
+		DeviceManager:  api.DeviceModeLVM,
+		RegistryName:   "cdi-registry",
+		ControllerName: "cdi-node-controller",
 	}
 	showVersion = flag.Bool("version", false, "Show release version and exit")
 	version     = "unknown" // Set version during build time

@@ -102,6 +102,8 @@ type Config struct {
 	TestEndpoint bool
 	//Mode mode fo the driver
 	Mode DriverMode
+	//RegistryName exported registry peer name
+	RegistryName string
 	//RegistryEndpoint exported registry server endpoint
 	RegistryEndpoint string
 	//CAFile Root certificate authority certificate file
@@ -114,6 +116,8 @@ type Config struct {
 	ClientCertFile string
 	//ClientKeyFile client private key
 	ClientKeyFile string
+	//Controller exported node controller peer name
+	ControllerName string
 	//ControllerEndpoint exported node controller endpoint
 	ControllerEndpoint string
 	//DeviceManager device manager to use
@@ -164,11 +168,11 @@ func GetCSIDriver(cfg Config) (*csiDriver, error) {
 		cfg.StateBasePath = "/var/lib/" + cfg.DriverName
 	}
 
-	peerName := "pmem-registry"
+	peerName := cfg.RegistryName
 	if cfg.Mode == Controller {
 		//When driver running in Controller mode, we connect to node controllers
 		//so use appropriate peer name
-		peerName = "pmem-node-controller"
+		peerName = cfg.ControllerName
 	}
 
 	if cfg.CertFile != "" && cfg.KeyFile != "" {
