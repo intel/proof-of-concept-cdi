@@ -172,7 +172,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/intel/pmem-csi/third-party/go-fibmap"
+	"github.com/intel/cdi/third-party/go-fibmap"
 )
 
 type FsType string

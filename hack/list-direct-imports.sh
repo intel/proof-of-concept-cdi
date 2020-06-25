@@ -7,7 +7,7 @@
 # Lists all direct dependencies of code in a certain module.
 #
 # Usage: <module> <package> <package> ...
-# Example: github.com/intel/pmem-csi ./cmd/pmem-csi-driver
+# Example: github.com/intel/cdi ./cmd/cdi-driver
 
 PACKAGE="$1"
 shift

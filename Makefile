@@ -15,8 +15,8 @@
 
 GO_BINARY=go
 GO=GOOS=linux GO111MODULE=on $(GO_BINARY)
-IMPORT_PATH=github.com/intel/pmem-csi
-CMDS=pmem-csi-driver pmem-vgm pmem-ns-init pmem-csi-operator
+IMPORT_PATH=github.com/intel/cdi
+CMDS=cdi-driver
 TEST_CMDS=$(addsuffix -test,$(CMDS))
 SHELL=bash
 export PWD=$(shell pwd)
@@ -36,9 +36,9 @@ HTTPS_PROXY=$(shell echo "$${HTTPS_PROXY:-$${https_proxy}}")
 NO_PROXY=$(shell echo "$${NO_PROXY:-$${no_proxy}},$$(ip addr | grep inet6 | grep /64 | sed -e 's;.*inet6 \(.*\)/64 .*;\1;' | tr '\n' ','; ip addr | grep -w inet | grep -e '/\(24\|16\|8\)' | sed -e 's;.*inet \(.*\)/\(24\|16\|8\) .*;\1;' | tr '\n' ',')",0.0.0.0)
 export HTTP_PROXY HTTPS_PROXY NO_PROXY
 
-REGISTRY_NAME?=$(shell . test/test-config.sh && echo $${TEST_BUILD_PMEM_REGISTRY})
+REGISTRY_NAME?=localhost:5000
 IMAGE_VERSION?=canary
-IMAGE_TAG=$(REGISTRY_NAME)/pmem-csi-driver$*:$(IMAGE_VERSION)
+IMAGE_TAG=$(REGISTRY_NAME)/cdi-driver$*:$(IMAGE_VERSION)
 # Pass proxy config via --build-arg only if these are set,
 # enabling proxy config other way, like ~/.docker/config.json
 BUILD_ARGS?=
@@ -60,7 +60,6 @@ all: build
 # Build all binaries, including tests.
 # Must use the workaround from https://github.com/golang/go/issues/15513
 build: $(CMDS) $(TEST_CMDS) check-go-version-$(GO_BINARY)
-	$(GO) test -run none ./pkg/... ./test/e2e
 
 # "make test" runs a variety of fast tests, including building all source code.
 # More tests are added elsewhere in this Makefile and test/test.make.
@@ -71,13 +70,13 @@ generate: operator-generate-k8s
 
 # Build production binaries.
 $(CMDS): check-go-version-$(GO_BINARY)
-	$(GO) build -ldflags '-X github.com/intel/pmem-csi/pkg/$@.version=${VERSION} -s -w' -a -o ${OUTPUT_DIR}/$@ ./cmd/$@
+	$(GO) build -ldflags '-X github.com/intel/cdi/pkg/$@.version=${VERSION} -s -w' -a -o ${OUTPUT_DIR}/$@ ./cmd/$@
 
 # Build a test binary that can be used instead of the normal one with
 # additional "-run" parameters. In contrast to the normal it then also
 # supports -test.coverprofile.
 $(TEST_CMDS): %-test: check-go-version-$(GO_BINARY)
-	$(GO) test --cover -covermode=atomic -c -coverpkg=./pkg/... -ldflags '-X github.com/intel/pmem-csi/pkg/$*.version=${VERSION}' -o ${OUTPUT_DIR}/$@ ./cmd/$*
+	$(GO) test --cover -covermode=atomic -c -coverpkg=./pkg/... -ldflags '-X github.com/intel/cdi/pkg/$*.version=${VERSION}' -o ${OUTPUT_DIR}/$@ ./cmd/$*
 
 # The default is to refresh the base image once a day when building repeatedly.
 # This is achieved by passing a fake variable that changes its value once per day.
@@ -127,16 +126,6 @@ clean:
 
 .PHONY: all build test clean $(CMDS) $(TEST_CMDS)
 
-include operator/operator.make
-
-# Add support for creating and booting a cluster under QEMU.
-# All of the commands operate on a cluster stored in _work/$(CLUSTER),
-# which defaults to _work/clear-govm. This can be changed with
-# make variables, for example:
-#   CLUSTER=pmem-govm-crio TEST_CRI=crio make start
-export CLUSTER ?= pmem-govm
-include test/start-stop.make
-include test/test.make
 
 #Kustomize latest release version
 KUSTOMIZE_VERSION=v3.4.0
@@ -157,43 +146,13 @@ KUSTOMIZE_INPUT := $(shell [ ! -d deploy/kustomize ] || find deploy/kustomize -t
 # The "testing" flavor of the generated files contains both
 # the loglevel changes and enables coverage data collection.
 KUSTOMIZE_OUTPUT :=
-KUSTOMIZE_OUTPUT += deploy/kubernetes-1.15/pmem-csi-direct.yaml
-KUSTOMIZATION_deploy/kubernetes-1.15/pmem-csi-direct.yaml = deploy/kustomize/kubernetes-1.15-direct
-KUSTOMIZE_OUTPUT += deploy/kubernetes-1.15/pmem-csi-lvm.yaml
-KUSTOMIZATION_deploy/kubernetes-1.15/pmem-csi-lvm.yaml = deploy/kustomize/kubernetes-1.15-lvm
-KUSTOMIZE_OUTPUT += deploy/kubernetes-1.15/pmem-csi-direct-testing.yaml
-KUSTOMIZATION_deploy/kubernetes-1.15/pmem-csi-direct-testing.yaml = deploy/kustomize/kubernetes-1.15-direct-coverage
-KUSTOMIZE_OUTPUT += deploy/kubernetes-1.15/pmem-csi-lvm-testing.yaml
-KUSTOMIZATION_deploy/kubernetes-1.15/pmem-csi-lvm-testing.yaml = deploy/kustomize/kubernetes-1.15-lvm-coverage
-KUSTOMIZE_OUTPUT += deploy/kubernetes-1.16/pmem-csi-direct.yaml
-KUSTOMIZATION_deploy/kubernetes-1.16/pmem-csi-direct.yaml = deploy/kustomize/kubernetes-1.16-direct
-KUSTOMIZE_OUTPUT += deploy/kubernetes-1.16/pmem-csi-lvm.yaml
-KUSTOMIZATION_deploy/kubernetes-1.16/pmem-csi-lvm.yaml = deploy/kustomize/kubernetes-1.16-lvm
-KUSTOMIZE_OUTPUT += deploy/kubernetes-1.16/pmem-csi-direct-testing.yaml
-KUSTOMIZATION_deploy/kubernetes-1.16/pmem-csi-direct-testing.yaml = deploy/kustomize/kubernetes-1.16-direct-testing
-KUSTOMIZE_OUTPUT += deploy/kubernetes-1.16/pmem-csi-lvm-testing.yaml
-KUSTOMIZATION_deploy/kubernetes-1.16/pmem-csi-lvm-testing.yaml = deploy/kustomize/kubernetes-1.16-lvm-testing
-KUSTOMIZE_OUTPUT += deploy/common/pmem-storageclass-ext4.yaml
-KUSTOMIZATION_deploy/common/pmem-storageclass-ext4.yaml = deploy/kustomize/storageclass-ext4
-KUSTOMIZE_OUTPUT += deploy/common/pmem-storageclass-xfs.yaml
-KUSTOMIZATION_deploy/common/pmem-storageclass-xfs.yaml = deploy/kustomize/storageclass-xfs
-KUSTOMIZE_OUTPUT += deploy/common/pmem-storageclass-cache.yaml
-KUSTOMIZATION_deploy/common/pmem-storageclass-cache.yaml = deploy/kustomize/storageclass-cache
-KUSTOMIZE_OUTPUT += deploy/common/pmem-storageclass-late-binding.yaml
-KUSTOMIZATION_deploy/common/pmem-storageclass-late-binding.yaml = deploy/kustomize/storageclass-late-binding
-KUSTOMIZE_OUTPUT += deploy/operator/pmem-csi-operator.yaml
-KUSTOMIZATION_deploy/operator/pmem-csi-operator.yaml = deploy/kustomize/operator
-kustomize: _work/go-bindata clean_kustomize_output $(KUSTOMIZE_OUTPUT)
-	$< -o deploy/bindata_generated.go -pkg deploy deploy/kubernetes-*/*/pmem-csi.yaml
+KUSTOMIZE_OUTPUT += deploy/kubernetes-1.18/cdi.yaml
+KUSTOMIZATION_deploy/kubernetes-1.18/cdi.yaml = deploy/kustomize/kubernetes-1.18
+
+kustomize: _work/kustomize clean_kustomize_output $(KUSTOMIZE_OUTPUT)
 
 $(KUSTOMIZE_OUTPUT): _work/kustomize $(KUSTOMIZE_INPUT)
 	$< build --load_restrictor none $(KUSTOMIZATION_$@) >$@
-	if echo "$@" | grep '/pmem-csi-' | grep -qv '\-operator'; then \
-		dir=$$(echo "$@" | tr - / | sed -e 's;kubernetes/;kubernetes-;' -e 's/.yaml//' -e 's;/pmem/csi/;/;') && \
-		mkdir -p $$dir && \
-		cp $@ $$dir/pmem-csi.yaml && \
-		echo 'resources: [ pmem-csi.yaml ]' > $$dir/kustomization.yaml; \
-	fi
 
 clean_kustomize_output:
 	rm -f $(KUSTOMIZE_OUTPUT)
@@ -208,13 +167,6 @@ clean-kustomize:
 	rm -f _work/kustomize-*
 	rm -f _work/kustomize
 
-.PHONY: clean-go-bindata
-clean: clean-go-bindata
-clean-go-bindata:
-	rm -f _work/go-bindata
-_work/go-bindata:
-	$(GO_BINARY) build -o $@ github.com/go-bindata/go-bindata/go-bindata
-
 .PHONY: test-kustomize $(addprefix test-kustomize-,$(KUSTOMIZE_OUTPUT))
 test: test-kustomize
 test-kustomize: $(addprefix test-kustomize-,$(KUSTOMIZE_OUTPUT))
@@ -228,33 +180,3 @@ $(addprefix test-kustomize-,$(KUSTOMIZE_OUTPUT)): test-kustomize-%: _work/kustom
 .PHONY: check-go-version-%
 check-go-version-%:
 	@ hack/verify-go-version.sh "$*"
-
-SPHINXOPTS    = -W --keep-going # Warn about everything, abort with an error at the end.
-SPHINXBUILD   = sphinx-build
-SOURCEDIR     = .
-BUILDDIR      = _output
-
-# Generate doc site under _build/html with Sphinx.
-# "vhtml" will set up tools, "html" expects them to be installed.
-# GITHUB_SHA will be used for kustomize references to the GitHub
-# repo (= github.com/intel/pmem-csi/deploy, a syntax that is only
-# valid there) if set.
-GEN_DOCS = $(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O) && \
-	( ! [ "$$GITHUB_SHA" ] || ! [ "$$GITHUB_REPOSITORY" ] || \
-	  find $(BUILDDIR)/html/ -name '*.html' | \
-	  xargs sed -i -e "s;github.com/intel/pmem-csi/\\(deploy/\\S*\\);github.com/$$GITHUB_REPOSITORY/\\1?ref=$$GITHUB_SHA;g" ) && \
-	cp docs/html/index.html $(BUILDDIR)/html/index.html && cp docs/js/copybutton.js $(BUILDDIR)/html/_static/copybutton.js
-vhtml: _work/venv/.stamp
-	. _work/venv/bin/activate && $(GEN_DOCS)
-html:
-	$(GEN_DOCS)
-
-clean-html:
-	rm -rf _output/html
-
-# Set up a Python3 environment with the necessary tools for document creation.
-_work/venv/.stamp: docs/requirements.txt
-	rm -rf ${@D}
-	python3 -m venv ${@D}
-	. ${@D}/bin/activate && pip install -r $<
-	touch $@

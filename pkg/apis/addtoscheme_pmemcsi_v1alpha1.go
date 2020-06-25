@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package apis
 
 import (
-	"github.com/intel/pmem-csi/pkg/apis/pmemcsi/v1alpha1"
+	"github.com/intel/cdi/pkg/apis/cdi/v1alpha1"
 )
 
 func init() {

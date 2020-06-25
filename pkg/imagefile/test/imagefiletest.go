@@ -26,7 +26,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/intel/pmem-csi/pkg/imagefile"
+	"github.com/intel/cdi/pkg/imagefile"
 )
 
 // TInterface extends the GinkgoTInterface with support for nested tests.

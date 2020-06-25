@@ -44,7 +44,7 @@ LICENSE_FILES=$(find third-party | grep -e LICENSE -e NOTICE | cut -d / -f 2-)
 pushd third-party > /dev/null
 
 for lic in $LICENSE_FILES; do
-    if echo "$PACKAGE_DEPS" | grep -q "^github.com/intel/pmem-csi/third-party/$(dirname $lic)"; then
+    if echo "$PACKAGE_DEPS" | grep -q "^github.com/intel/cdi/third-party/$(dirname $lic)"; then
         cp -t "$licensedir" --parents $lic
     fi
 done

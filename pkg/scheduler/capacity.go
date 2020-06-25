@@ -12,7 +12,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
-	"github.com/intel/pmem-csi/pkg/registryserver"
+	"github.com/intel/cdi/pkg/registryserver"
 )
 
 type capacity struct {

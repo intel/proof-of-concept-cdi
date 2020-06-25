@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	grpcserver "github.com/intel/pmem-csi/pkg/grpc-server"
-	pmemgrpc "github.com/intel/pmem-csi/pkg/pmem-grpc"
-	registry "github.com/intel/pmem-csi/pkg/pmem-registry"
-	"github.com/intel/pmem-csi/pkg/registryserver"
+	cdigrpc "github.com/intel/cdi/pkg/grpc"
+	grpcserver "github.com/intel/cdi/pkg/grpc-server"
+	registry "github.com/intel/cdi/pkg/registry"
+	"github.com/intel/cdi/pkg/registryserver"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -29,7 +29,7 @@ var tmpDir string
 
 var _ = BeforeSuite(func() {
 	var err error
-	tmpDir, err = ioutil.TempDir("", "pmem-test-")
+	tmpDir, err = ioutil.TempDir("", "cdi-test-")
 	Expect(err).NotTo(HaveOccurred())
 })
 
@@ -37,9 +37,9 @@ var _ = AfterSuite(func() {
 	os.RemoveAll(tmpDir)
 })
 
-var _ = Describe("pmem registry", func() {
+var _ = Describe("cdi-registry", func() {
 
-	registryServerSocketFile := filepath.Join(tmpDir, "pmem-registry.sock")
+	registryServerSocketFile := filepath.Join(tmpDir, "cdi-registry.sock")
 	registryServerEndpoint := "unix://" + registryServerSocketFile
 
 	var (
@@ -55,10 +55,10 @@ var _ = Describe("pmem registry", func() {
 
 		registryServer = registryserver.New(nil)
 
-		caFile := os.ExpandEnv("${TEST_WORK}/pmem-ca/ca.pem")
-		certFile := os.ExpandEnv("${TEST_WORK}/pmem-ca/pmem-registry.pem")
-		keyFile := os.ExpandEnv("${TEST_WORK}/pmem-ca/pmem-registry-key.pem")
-		tlsConfig, err = pmemgrpc.LoadServerTLS(caFile, certFile, keyFile, "pmem-node-controller")
+		caFile := os.ExpandEnv("${TEST_WORK}/cdi-ca/ca.pem")
+		certFile := os.ExpandEnv("${TEST_WORK}/cdi-ca/cdi-registry.pem")
+		keyFile := os.ExpandEnv("${TEST_WORK}/cdi-ca/cdi-registry-key.pem")
+		tlsConfig, err = cdigrpc.LoadServerTLS(caFile, certFile, keyFile, "cdi-node-controller")
 		Expect(err).NotTo(HaveOccurred())
 
 		nbServer = grpcserver.NewNonBlockingGRPCServer()
@@ -68,12 +68,12 @@ var _ = Describe("pmem registry", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// set up node controller client
-		nodeCertFile := os.ExpandEnv("${TEST_WORK}/pmem-ca/pmem-node-controller.pem")
-		nodeCertKey := os.ExpandEnv("${TEST_WORK}/pmem-ca/pmem-node-controller-key.pem")
-		tlsConfig, err = pmemgrpc.LoadClientTLS(caFile, nodeCertFile, nodeCertKey, "pmem-registry")
+		nodeCertFile := os.ExpandEnv("${TEST_WORK}/cdi-ca/cdi-node-controller.pem")
+		nodeCertKey := os.ExpandEnv("${TEST_WORK}/cdi-ca/cdi-node-controller-key.pem")
+		tlsConfig, err = cdigrpc.LoadClientTLS(caFile, nodeCertFile, nodeCertKey, "cdi-registry")
 		Expect(err).NotTo(HaveOccurred())
 
-		registryClientConn, err = pmemgrpc.Connect(registryServerEndpoint, tlsConfig)
+		registryClientConn, err = cdigrpc.Connect(registryServerEndpoint, tlsConfig)
 		Expect(err).NotTo(HaveOccurred())
 		registryClient = registry.NewRegistryClient(registryClientConn)
 	})
@@ -90,10 +90,10 @@ var _ = Describe("pmem registry", func() {
 	})
 
 	Context("Registry API", func() {
-		controllerServerSocketFile := filepath.Join(tmpDir, "pmem-controller.sock")
+		controllerServerSocketFile := filepath.Join(tmpDir, "cdi-controller.sock")
 		controllerServerEndpoint := "unix://" + controllerServerSocketFile
 		var (
-			nodeId      = "pmem-test"
+			nodeId      = "cdi-test"
 			registerReq = registry.RegisterControllerRequest{
 				NodeId:   nodeId,
 				Endpoint: controllerServerEndpoint,
@@ -161,16 +161,16 @@ var _ = Describe("pmem registry", func() {
 
 	Context("Registry Security", func() {
 		var (
-			evilEndpoint = "unix:///tmp/pmem-evil.sock"
-			ca           = os.ExpandEnv("${TEST_WORK}/pmem-ca/ca.pem")
-			cert         = os.ExpandEnv("${TEST_WORK}/pmem-ca/pmem-node-controller.pem")
-			key          = os.ExpandEnv("${TEST_WORK}/pmem-ca/pmem-node-controller-key.pem")
-			wrongCert    = os.ExpandEnv("${TEST_WORK}/pmem-ca/wrong-node-controller.pem")
-			wrongKey     = os.ExpandEnv("${TEST_WORK}/pmem-ca/wrong-node-controller-key.pem")
+			evilEndpoint = "unix:///tmp/cdi-evil.sock"
+			ca           = os.ExpandEnv("${TEST_WORK}/cdi-ca/ca.pem")
+			cert         = os.ExpandEnv("${TEST_WORK}/cdi-ca/cdi-node-controller.pem")
+			key          = os.ExpandEnv("${TEST_WORK}/cdi-ca/cdi-node-controller-key.pem")
+			wrongCert    = os.ExpandEnv("${TEST_WORK}/cdi-ca/wrong-node-controller.pem")
+			wrongKey     = os.ExpandEnv("${TEST_WORK}/cdi-ca/wrong-node-controller-key.pem")
 
 			evilCA   = os.ExpandEnv("${TEST_WORK}/evil-ca/ca.pem")
-			evilCert = os.ExpandEnv("${TEST_WORK}/evil-ca/pmem-node-controller.pem")
-			evilKey  = os.ExpandEnv("${TEST_WORK}/evil-ca/pmem-node-controller-key.pem")
+			evilCert = os.ExpandEnv("${TEST_WORK}/evil-ca/cdi-node-controller.pem")
+			evilKey  = os.ExpandEnv("${TEST_WORK}/evil-ca/cdi-node-controller-key.pem")
 		)
 
 		// gRPC returns all kinds of errors when TLS fails.
@@ -182,12 +182,12 @@ var _ = Describe("pmem registry", func() {
 		}{
 			// The exact error for the server side depends on whether TLS 1.3 is active (https://golang.org/doc/go1.12#tls_1_3).
 			// It looks like error detection is less precise in that case.
-			{"registry should detect man-in-the-middle", ca, evilCert, evilKey, "pmem-registry",
+			{"registry should detect man-in-the-middle", ca, evilCert, evilKey, "cdi-registry",
 				badConnectionRE,
 			},
-			{"client should detect man-in-the-middle", evilCA, evilCert, evilKey, "pmem-registry", "transport: authentication handshake failed: x509: certificate signed by unknown authority"},
-			{"client should detect wrong peer", ca, cert, key, "unknown-registry", "transport: authentication handshake failed: x509: certificate is valid for pmem-csi-scheduler, pmem-csi-scheduler.default, pmem-csi-scheduler.default.svc, pmem-csi-metrics, pmem-csi-metrics.default, pmem-csi-metrics.default.svc, pmem-registry, not unknown-registry"},
-			{"server should detect wrong peer", ca, wrongCert, wrongKey, "pmem-registry",
+			{"client should detect man-in-the-middle", evilCA, evilCert, evilKey, "cdi-registry", "transport: authentication handshake failed: x509: certificate signed by unknown authority"},
+			{"client should detect wrong peer", ca, cert, key, "unknown-registry", "transport: authentication handshake failed: x509: certificate is valid for cdi-scheduler, cdi-scheduler.default, cdi-scheduler.default.svc, cdi-metrics, cdi-metrics.default, cdi-metrics.default.svc, cdi-registry, not unknown-registry"},
+			{"server should detect wrong peer", ca, wrongCert, wrongKey, "cdi-registry",
 				badConnectionRE,
 			},
 		}
@@ -195,14 +195,14 @@ var _ = Describe("pmem registry", func() {
 		for _, c := range cases {
 			c := c
 			It(c.name, func() {
-				tlsConfig, err := pmemgrpc.LoadClientTLS(c.ca, c.cert, c.key, c.peerName)
+				tlsConfig, err := cdigrpc.LoadClientTLS(c.ca, c.cert, c.key, c.peerName)
 				Expect(err).NotTo(HaveOccurred())
-				clientConn, err := pmemgrpc.Connect(registryServerEndpoint, tlsConfig)
+				clientConn, err := cdigrpc.Connect(registryServerEndpoint, tlsConfig)
 				Expect(err).NotTo(HaveOccurred())
 				client := registry.NewRegistryClient(clientConn)
 
 				req := registry.RegisterControllerRequest{
-					NodeId:   "pmem-evil",
+					NodeId:   "cdi-evil",
 					Endpoint: evilEndpoint,
 				}
 

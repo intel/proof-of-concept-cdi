@@ -4,14 +4,14 @@ Copyright 2017 The Kubernetes Authors.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package pmemcsidriver
+package cdidriver
 
 import (
 	"crypto/tls"
 	"fmt"
 	"sync"
 
-	"github.com/intel/pmem-csi/pkg/pmem-grpc"
+	cdigrpc "github.com/intel/cdi/pkg/grpc"
 	"google.golang.org/grpc"
 	"k8s.io/klog"
 )
@@ -36,7 +36,7 @@ func (s *NonBlockingGRPCServer) Start(endpoint string, tlsConfig *tls.Config, se
 	if endpoint == "" {
 		return fmt.Errorf("endpoint cannot be empty")
 	}
-	rpcServer, l, err := pmemgrpc.NewServer(endpoint, tlsConfig)
+	rpcServer, l, err := cdigrpc.NewServer(endpoint, tlsConfig)
 	if err != nil {
 		return nil
 	}

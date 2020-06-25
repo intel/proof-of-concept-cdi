@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/intel/pmem-csi/pkg/pmem-csi-driver/parameters"
+	"github.com/intel/cdi/pkg/cdi-driver/parameters"
 )
 
 // Capacity provides information of remaining free PMEM per node.

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	pmemgrpc "github.com/intel/pmem-csi/pkg/pmem-grpc"
-	registry "github.com/intel/pmem-csi/pkg/pmem-registry"
+	cdigrpc "github.com/intel/cdi/pkg/grpc"
+	registry "github.com/intel/cdi/pkg/registry"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
@@ -51,7 +51,7 @@ type NodeInfo struct {
 }
 
 var (
-	pmemNodes = prometheus.NewGauge(
+	nodes = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "pmem_nodes",
 			Help: "The number of PMEM-CSI nodes registered in the controller.",
@@ -60,7 +60,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(pmemNodes)
+	prometheus.MustRegister(nodes)
 }
 
 func New(tlsConfig *tls.Config) *RegistryServer {
@@ -97,7 +97,7 @@ func (rs *RegistryServer) ConnectToNodeController(nodeId string) (*grpc.ClientCo
 
 	klog.V(3).Infof("Connecting to node controller: %s", nodeInfo.Endpoint)
 
-	return pmemgrpc.Connect(nodeInfo.Endpoint, rs.clientTLSConfig)
+	return cdigrpc.Connect(nodeInfo.Endpoint, rs.clientTLSConfig)
 }
 
 func (rs *RegistryServer) AddListener(l RegistryListener) {
@@ -131,7 +131,7 @@ func (rs *RegistryServer) RegisterController(ctx context.Context, req *registry.
 		}
 	}
 	rs.nodeClients[req.NodeId] = node
-	pmemNodes.Set(float64(len(rs.nodeClients)))
+	nodes.Set(float64(len(rs.nodeClients)))
 	rs.mutex.Unlock()
 
 	if !found {
@@ -139,7 +139,7 @@ func (rs *RegistryServer) RegisterController(ctx context.Context, req *registry.
 			if err := l.OnNodeAdded(ctx, node); err != nil {
 				rs.mutex.Lock()
 				delete(rs.nodeClients, req.NodeId)
-				pmemNodes.Set(float64(len(rs.nodeClients)))
+				nodes.Set(float64(len(rs.nodeClients)))
 				rs.mutex.Unlock()
 				return nil, errors.Wrap(err, "failed to register node")
 			}
@@ -160,7 +160,7 @@ func (rs *RegistryServer) UnregisterController(ctx context.Context, req *registr
 	rs.mutex.Lock()
 	node, ok := rs.nodeClients[req.NodeId]
 	delete(rs.nodeClients, req.NodeId)
-	pmemNodes.Set(float64(len(rs.nodeClients)))
+	nodes.Set(float64(len(rs.nodeClients)))
 	rs.mutex.Unlock()
 
 	if ok {
