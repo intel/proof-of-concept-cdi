@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	github.com/container-storage-interface/spec v1.2.0
-	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.3.2
 	github.com/kubernetes-csi/csi-lib-utils v0.6.1
 	github.com/onsi/ginkgo v1.11.0
@@ -21,7 +20,6 @@ require (
 	k8s.io/apimachinery v0.18.1
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
-	k8s.io/kube-scheduler v0.18.1
 	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
 	// Master is required because only that supports Kubernetes 1.18.
 	sigs.k8s.io/controller-runtime v0.5.1-0.20200414221803-bac7e8aaf90a
@@ -43,7 +41,6 @@ replace (
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.18.1
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.18.1
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.18.1
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.18.1
 	k8s.io/kubectl => k8s.io/kubectl v0.18.1
 	k8s.io/kubelet => k8s.io/kubelet v0.18.1
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.18.1

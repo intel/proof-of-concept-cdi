@@ -8,7 +8,6 @@ SPDX-License-Identifier: Apache-2.0
 package cdidriver
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 
@@ -16,7 +15,6 @@ import (
 
 	api "github.com/intel/cdi/pkg/apis/cdi/v1alpha1"
 	common "github.com/intel/cdi/pkg/common"
-	"github.com/intel/cdi/pkg/k8sutil"
 )
 
 var (
@@ -48,9 +46,6 @@ func init() {
 	flag.Var(&config.DeviceManager, "deviceManager", "device manager to use to manage pmem devices, supported types: 'fpga' or 'gpu'")
 	flag.StringVar(&config.StateBasePath, "statePath", "", "Directory path where to persist the state of the driver running on a node, defaults to /var/lib/<drivername>")
 
-	/* scheduler options */
-	flag.StringVar(&config.schedulerListen, "schedulerListen", "", "listen address (like :8000) for scheduler extender and mutating webhook, disabled by default")
-
 	flag.Set("logtostderr", "true")
 }
 
@@ -61,19 +56,6 @@ func Main() int {
 	}
 
 	klog.V(3).Info("Version: ", version)
-
-	if config.schedulerListen != "" {
-		if config.Mode != Controller {
-			common.ExitError("scheduler listening", errors.New("only supported in the controller"))
-			return 1
-		}
-		c, err := k8sutil.NewInClusterClient()
-		if err != nil {
-			common.ExitError("scheduler setup", err)
-			return 1
-		}
-		config.client = c
-	}
 
 	config.Version = version
 	driver, err := GetCSIDriver(config)

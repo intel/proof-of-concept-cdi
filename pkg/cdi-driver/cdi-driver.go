@@ -12,8 +12,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -26,15 +24,12 @@ import (
 	grpcserver "github.com/intel/cdi/pkg/grpc-server"
 	registry "github.com/intel/cdi/pkg/registry"
 	"github.com/intel/cdi/pkg/registryserver"
-	"github.com/intel/cdi/pkg/scheduler"
 	state "github.com/intel/cdi/pkg/state"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
 
@@ -110,10 +105,6 @@ type Config struct {
 	StateBasePath string
 	//Version driver release version
 	Version string
-
-	// parameters for Kubernetes scheduler extender
-	schedulerListen string
-	client          kubernetes.Interface
 }
 
 type csiDriver struct {
@@ -215,11 +206,6 @@ func (csid *csiDriver) Run() error {
 			if err := s.Start(csid.cfg.Endpoint, csid.serverTLSConfig, ids, cs, rs); err != nil {
 				return err
 			}
-		}
-
-		// Also run scheduler extender?
-		if _, err := csid.startScheduler(ctx, cancel, rs); err != nil {
-			return err
 		}
 	} else if csid.cfg.Mode == Node {
 		dm, err := newDeviceManager(csid.cfg.DeviceManager)
@@ -324,82 +310,6 @@ func (csid *csiDriver) unregisterNodeController() error {
 	_, err = client.UnregisterController(context.Background(), req)
 
 	return err
-}
-
-// startScheduler starts the scheduler extender if it is enabled. It
-// logs errors and cancels the context when it runs into a problem,
-// either during the startup phase (blocking) or later at runtime (in
-// a go routine).
-func (csid *csiDriver) startScheduler(ctx context.Context, cancel func(), rs *registryserver.RegistryServer) (string, error) {
-	if csid.cfg.schedulerListen == "" {
-		return "", nil
-	}
-
-	resyncPeriod := 1 * time.Hour
-	factory := informers.NewSharedInformerFactory(csid.cfg.client, resyncPeriod)
-	pvcLister := factory.Core().V1().PersistentVolumeClaims().Lister()
-	scLister := factory.Storage().V1().StorageClasses().Lister()
-	sched, err := scheduler.NewScheduler(
-		csid.cfg.DriverName,
-		scheduler.CapacityViaRegistry(rs),
-		csid.cfg.client,
-		pvcLister,
-		scLister,
-	)
-	if err != nil {
-		return "", fmt.Errorf("create scheduler: %v", err)
-	}
-	factory.Start(ctx.Done())
-	cacheSyncResult := factory.WaitForCacheSync(ctx.Done())
-	klog.V(5).Infof("synchronized caches: %+v", cacheSyncResult)
-	for t, v := range cacheSyncResult {
-		if !v {
-			return "", fmt.Errorf("failed to sync informer for type %v", t)
-		}
-	}
-	return csid.startHTTPSServer(ctx, cancel, csid.cfg.schedulerListen, sched)
-}
-
-// startHTTPSServer contains the common logic for starting and
-// stopping an HTTPS server.  Returns an error or the address that can
-// be used in Dial("tcp") to reach the server (useful for testing when
-// "listen" does not include a port).
-func (csid *csiDriver) startHTTPSServer(ctx context.Context, cancel func(), listen string, handler http.Handler) (string, error) {
-	config, err := cdigrpc.LoadServerTLS(csid.cfg.CAFile, csid.cfg.CertFile, csid.cfg.KeyFile, "")
-	if err != nil {
-		return "", fmt.Errorf("initialize HTTPS config: %v", err)
-	}
-	server := http.Server{
-		Addr: listen,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			klog.V(5).Infof("HTTP request: %s %q from %s %s", r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent())
-			handler.ServeHTTP(w, r)
-		}),
-		TLSConfig: config,
-	}
-	listener, err := net.Listen("tcp", listen)
-	if err != nil {
-		return "", fmt.Errorf("listen on TCP address %q: %v", listen, err)
-	}
-	tcpListener := listener.(*net.TCPListener)
-	go func() {
-		defer tcpListener.Close()
-
-		err := server.ServeTLS(listener, csid.cfg.CertFile, csid.cfg.KeyFile)
-		if err != http.ErrServerClosed {
-			klog.Errorf("%s HTTPS server error: %v", listen, err)
-		}
-		// Also stop main thread.
-		cancel()
-	}()
-	go func() {
-		// Block until the context is done, then immediately
-		// close the server.
-		<-ctx.Done()
-		server.Close()
-	}()
-
-	return tcpListener.Addr().String(), nil
 }
 
 // waitAndWatchConnection Keeps watching for connection changes, and whenever the
