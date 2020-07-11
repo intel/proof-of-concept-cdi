@@ -145,19 +145,6 @@ spec:
   selector:
     app: cdi-controller
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: cdi-metrics
-  namespace: default
-spec:
-  ports:
-  - port: 10010
-    targetPort: 10010
-  selector:
-    app: cdi-controller
-  type: NodePort
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -192,7 +179,6 @@ spec:
         - -mode=controller
         - -endpoint=unix:///csi/csi-controller.sock
         - -registryEndpoint=tcp://0.0.0.0:10000
-        - -metricsListen=:10010
         - -nodeid=$(KUBE_NODE_NAME)
         - -caFile=/certs/ca.crt
         - -certFile=/certs/tls.crt

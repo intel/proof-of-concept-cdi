@@ -29,8 +29,6 @@ import (
 	"github.com/intel/cdi/pkg/scheduler"
 	state "github.com/intel/cdi/pkg/state"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
@@ -73,21 +71,7 @@ const (
 var (
 	//PmemDriverTopologyKey key to use for topology constraint
 	DriverTopologyKey = ""
-
-	// Mirrored after https://github.com/kubernetes/component-base/blob/dae26a37dccb958eac96bc9dedcecf0eb0690f0f/metrics/version.go#L21-L37
-	// just with less information.
-	buildInfo = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "build_info",
-			Help: "A metric with a constant '1' value labeled by version.",
-		},
-		[]string{"version"},
-	)
 )
-
-func init() {
-	prometheus.MustRegister(buildInfo)
-}
 
 //Config type for driver configuration
 type Config struct {
@@ -130,10 +114,6 @@ type Config struct {
 	// parameters for Kubernetes scheduler extender
 	schedulerListen string
 	client          kubernetes.Interface
-
-	// parameters for Prometheus metrics
-	metricsListen string
-	metricsPath   string
 }
 
 type csiDriver struct {
@@ -197,10 +177,6 @@ func GetCSIDriver(cfg Config) (*csiDriver, error) {
 
 	DriverTopologyKey = cfg.DriverName + "/node"
 
-	// Should GetCSIDriver get called more than once per process,
-	// all of them will record their version.
-	buildInfo.With(prometheus.Labels{"version": cfg.Version}).Set(1)
-
 	return &csiDriver{
 		cfg:             cfg,
 		serverTLSConfig: serverConfig,
@@ -245,12 +221,6 @@ func (csid *csiDriver) Run() error {
 		if _, err := csid.startScheduler(ctx, cancel, rs); err != nil {
 			return err
 		}
-		// And metrics server?
-		addr, err := csid.startMetrics(ctx, cancel)
-		if err != nil {
-			return err
-		}
-		klog.V(2).Infof("Prometheus endpoint started at https://%s%s", addr, csid.cfg.metricsPath)
 	} else if csid.cfg.Mode == Node {
 		dm, err := newDeviceManager(csid.cfg.DeviceManager)
 		if err != nil {
@@ -388,22 +358,6 @@ func (csid *csiDriver) startScheduler(ctx context.Context, cancel func(), rs *re
 		}
 	}
 	return csid.startHTTPSServer(ctx, cancel, csid.cfg.schedulerListen, sched)
-}
-
-// startMetrics starts the HTTPS server for the Prometheus endpoint, if one is configured.
-// Error handling is the same as for startScheduler.
-func (csid *csiDriver) startMetrics(ctx context.Context, cancel func()) (string, error) {
-	if csid.cfg.metricsListen == "" {
-		return "", nil
-	}
-
-	// We use the default Prometheus handler here and thus return all data that
-	// is registered globally, including (but not limited to!) our own metrics
-	// data. For example, some Go runtime information (https://povilasv.me/prometheus-go-metrics/)
-	// are included, which may be useful.
-	mux := http.NewServeMux()
-	mux.Handle(csid.cfg.metricsPath, promhttp.Handler())
-	return csid.startHTTPSServer(ctx, cancel, csid.cfg.metricsListen, mux)
 }
 
 // startHTTPSServer contains the common logic for starting and
