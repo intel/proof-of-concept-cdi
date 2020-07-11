@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	github.com/container-storage-interface/spec v1.2.0
-	github.com/go-bindata/go-bindata v3.1.1+incompatible
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.3.2
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect

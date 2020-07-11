@@ -14,7 +14,7 @@ FROM ${CLEAR_LINUX_BASE} AS build
 ARG CLEAR_LINUX_BASE
 ARG SWUPD_UPDATE_ARG
 
-ARG GO_VERSION="1.13.4"
+ARG GO_VERSION="1.14.4"
 
 #pull dependencies required for downloading
 ARG CACHEBUST

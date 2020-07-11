@@ -37,16 +37,3 @@ for lic in $LICENSE_FILES; do
 done
 
 popd > /dev/null
-
-# Same for forked third-party code.
-LICENSE_FILES=$(find third-party | grep -e LICENSE -e NOTICE | cut -d / -f 2-)
-
-pushd third-party > /dev/null
-
-for lic in $LICENSE_FILES; do
-    if echo "$PACKAGE_DEPS" | grep -q "^github.com/intel/cdi/third-party/$(dirname $lic)"; then
-        cp -t "$licensedir" --parents $lic
-    fi
-done
-
-popd > /dev/null
