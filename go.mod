@@ -6,7 +6,6 @@ require (
 	github.com/container-storage-interface/spec v1.2.0
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.3.2
-	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kubernetes-csi/csi-lib-utils v0.6.1
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
@@ -23,7 +22,6 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-scheduler v0.18.1
-	k8s.io/kubernetes v1.18.1
 	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
 	// Master is required because only that supports Kubernetes 1.18.
 	sigs.k8s.io/controller-runtime v0.5.1-0.20200414221803-bac7e8aaf90a
