@@ -1,5 +1,5 @@
 # Copyright 2017 The Kubernetes Authors.
-# Copyright 2018 Intel Corporation
+# Copyright 2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 
 GO_BINARY=go
-GO=GOOS=linux GO111MODULE=on $(GO_BINARY)
+GO=GOOS=linux CGO_ENABLED=0 GO111MODULE=on $(GO_BINARY)
 IMPORT_PATH=github.com/intel/cdi
 CMDS=cdi-driver
 TEST_CMDS=$(addsuffix -test,$(CMDS))
@@ -27,43 +27,20 @@ ifeq ($(VERSION), )
 VERSION=$(shell git describe --long --dirty --tags --match='v*')
 endif
 
-# Sanitize proxy settings (accept upper and lower case, set and export upper
-# case) and add local machine to no_proxy because some tests may use a
-# local Docker registry. Also exclude 0.0.0.0 because otherwise Go
-# tests using that address try to go through the proxy.
-HTTP_PROXY=$(shell echo "$${HTTP_PROXY:-$${http_proxy}}")
-HTTPS_PROXY=$(shell echo "$${HTTPS_PROXY:-$${https_proxy}}")
-NO_PROXY=$(shell echo "$${NO_PROXY:-$${no_proxy}},$$(ip addr | grep inet6 | grep /64 | sed -e 's;.*inet6 \(.*\)/64 .*;\1;' | tr '\n' ','; ip addr | grep -w inet | grep -e '/\(24\|16\|8\)' | sed -e 's;.*inet \(.*\)/\(24\|16\|8\) .*;\1;' | tr '\n' ',')",0.0.0.0)
-export HTTP_PROXY HTTPS_PROXY NO_PROXY
-
-REGISTRY_NAME?=localhost:5000
 IMAGE_VERSION?=canary
-IMAGE_TAG=$(REGISTRY_NAME)/cdi-driver$*:$(IMAGE_VERSION)
-# Pass proxy config via --build-arg only if these are set,
-# enabling proxy config other way, like ~/.docker/config.json
-BUILD_ARGS?=
-ifneq ($(HTTP_PROXY),)
-	BUILD_ARGS:=${BUILD_ARGS} --build-arg http_proxy=${HTTP_PROXY}
-endif
-ifneq ($(HTTPS_PROXY),)
-	BUILD_ARGS:=${BUILD_ARGS} --build-arg https_proxy=${HTTPS_PROXY}
-endif
-ifneq ($(NO_PROXY),)
-	BUILD_ARGS:=${BUILD_ARGS} --build-arg no_proxy=${NO_PROXY}
-endif
+IMAGE_TAG=cdi-driver$*:$(IMAGE_VERSION)
 
-BUILD_ARGS:=${BUILD_ARGS} --build-arg VERSION=${VERSION}
+BUILD_ARGS:=--build-arg VERSION=${VERSION}
 
 # An alias for "make build" and the default target.
 all: build
 
 # Build all binaries, including tests.
-# Must use the workaround from https://github.com/golang/go/issues/15513
 build: $(CMDS) $(TEST_CMDS) check-go-version-$(GO_BINARY)
 
-# "make test" runs a variety of fast tests, including building all source code.
-# More tests are added elsewhere in this Makefile and test/test.make.
-test: build
+# "make test" runs a variety of fast tests.
+test:
+	$(GO) test ./pkg/...
 
 # Build production binaries.
 $(CMDS): check-go-version-$(GO_BINARY)
@@ -75,47 +52,13 @@ $(CMDS): check-go-version-$(GO_BINARY)
 $(TEST_CMDS): %-test: check-go-version-$(GO_BINARY)
 	$(GO) test --cover -covermode=atomic -c -coverpkg=./pkg/... -ldflags '-X github.com/intel/cdi/pkg/$*.version=${VERSION}' -o ${OUTPUT_DIR}/$@ ./cmd/$*
 
-# The default is to refresh the base image once a day when building repeatedly.
-# This is achieved by passing a fake variable that changes its value once per day.
-# A CI system that produces production images should instead use
-# `make  BUILD_IMAGE_ID=<some unique number>`.
-#
-# At the moment this build ID is not recorded in the resulting images.
-# The VERSION variable should be used for that, if desired.
-BUILD_IMAGE_ID?=$(shell date +%Y-%m-%d)
-
-# Build and publish images for production or testing (i.e. with test binaries).
-# Pushing images also automatically rebuilds the image first. This can be disabled
-# with `make push-images PUSH_IMAGE_DEP=`.
-build-images: build-image build-test-image
-push-images: push-image push-test-image
-build-image build-test-image: build%-image: populate-vendor-dir
-	docker build --pull --build-arg CACHEBUST=$(BUILD_IMAGE_ID) --build-arg GOFLAGS=-mod=vendor --build-arg BIN_SUFFIX=$(findstring -test,$*) $(BUILD_ARGS) -t $(IMAGE_TAG) -f ./Dockerfile . --label revision=$(VERSION)
-PUSH_IMAGE_DEP = build%-image
-# "docker push" has been seen to fail temporarily with "error creating overlay mount to /var/lib/docker/overlay2/xxx/merged: device or resource busy".
-# Here we simply try three times before giving up.
-push-image push-test-image: push%-image: $(PUSH_IMAGE_DEP)
-	@ i=0; while true; do \
-		if (set -x; docker push $(IMAGE_TAG)); then \
-			exit 0; \
-		elif [ $$i -ge 2 ]; then \
-			echo "'docker push' failed repeatedly, giving up"; \
-			exit; \
-		else \
-			echo "attempt #$$i: 'docker push' failed, will try again"; \
-			i=$$(($$i + 1)); \
-		fi; \
-	done
-
-# This ensures that all sources are available in the "vendor" directory for use
-# inside "docker build".
-populate-vendor-dir:
+# Build images
+image:
+	# This ensures that all sources are available in the "vendor" directory for use
+	# inside "docker build".
 	go mod tidy
 	go mod vendor
-
-.PHONY: print-image-version
-print-image-version:
-	@ echo "$(IMAGE_VERSION)"
+	docker build --build-arg GOFLAGS=-mod=vendor $(BUILD_ARGS) -t $(IMAGE_TAG) -f ./Dockerfile . --label revision=$(VERSION)
 
 clean:
 	$(GO) clean -r -x ./cmd/...
@@ -123,9 +66,8 @@ clean:
 
 .PHONY: all build test clean $(CMDS) $(TEST_CMDS)
 
-
-#Kustomize latest release version
-KUSTOMIZE_VERSION=v3.4.0
+# Kustomize latest release version
+KUSTOMIZE_VERSION=v3.8.0
 _work/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz:
 	curl -L https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -o $(abspath $@)
 

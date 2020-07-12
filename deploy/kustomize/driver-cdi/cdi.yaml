@@ -63,7 +63,7 @@ spec:
                 - "false"
       containers:
       - name: cdi-driver
-        image: localhost:5000/cdi-driver:canary
+        image: cdi-driver:canary
         imagePullPolicy: IfNotPresent
         command: [
                  "/usr/local/bin/cdi-driver",
@@ -136,7 +136,7 @@ spec:
         storage: cdi
       containers:
       - name: cdi-driver
-        image: localhost:5000/cdi-driver:canary
+        image: cdi-driver:canary
         imagePullPolicy: IfNotPresent
         command: [
                   "/usr/local/bin/cdi-driver",

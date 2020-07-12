@@ -194,7 +194,7 @@ spec:
           value: /tmp/termination-log
         - name: CDI_DRIVER_NAME
           value: cdi.intel.com
-        image: localhost:5000/cdi-driver:canary
+        image: cdi-driver:canary
         imagePullPolicy: IfNotPresent
         name: cdi-driver
         securityContext:
@@ -278,7 +278,7 @@ spec:
           value: cdi.intel.com
         - name: TERMINATION_LOG_PATH
           value: /tmp/termination-log
-        image: localhost:5000/cdi-driver:canary
+        image: cdi-driver:canary
         imagePullPolicy: IfNotPresent
         name: cdi-driver
         securityContext:
