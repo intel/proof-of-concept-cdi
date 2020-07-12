@@ -14,15 +14,11 @@ require (
 	golang.org/x/sys v0.0.0-20191113165036-4c7a9d0fe056
 	google.golang.org/genproto v0.0.0-20191114150713-6bbd007550de // indirect
 	google.golang.org/grpc v1.26.0
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/freddierice/go-losetup.v1 v1.0.0-20170407175016-fc9adea44124
-	k8s.io/api v0.18.1
-	k8s.io/apiextensions-apiserver v0.18.1
 	k8s.io/apimachinery v0.18.1
-	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
-	// Master is required because only that supports Kubernetes 1.18.
-	sigs.k8s.io/controller-runtime v0.5.1-0.20200414221803-bac7e8aaf90a
 )
 
 replace (

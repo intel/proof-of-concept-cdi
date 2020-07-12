@@ -18,7 +18,6 @@ import (
 	"syscall"
 	"time"
 
-	api "github.com/intel/cdi/pkg/apis/cdi/v1alpha1"
 	dmanager "github.com/intel/cdi/pkg/device-manager"
 	cdigrpc "github.com/intel/cdi/pkg/grpc"
 	grpcserver "github.com/intel/cdi/pkg/grpc-server"
@@ -99,8 +98,8 @@ type Config struct {
 	ControllerName string
 	//ControllerEndpoint exported node controller endpoint
 	ControllerEndpoint string
-	//DeviceManager device manager to use
-	DeviceManager api.DeviceMode
+	//DeviceType device type to use (fpga,gpu)
+	DeviceType dmanager.DeviceType
 	//Directory where to persist the node driver state
 	StateBasePath string
 	//Version driver release version
@@ -208,7 +207,7 @@ func (csid *csiDriver) Run() error {
 			}
 		}
 	} else if csid.cfg.Mode == Node {
-		dm, err := newDeviceManager(csid.cfg.DeviceManager)
+		dm, err := newDeviceManager(csid.cfg.DeviceType)
 		if err != nil {
 			return err
 		}
@@ -358,8 +357,8 @@ func register(ctx context.Context, conn *grpc.ClientConn, req *registry.Register
 	return nil
 }
 
-func newDeviceManager(dmType api.DeviceMode) (dmanager.DeviceManager, error) {
-	if dmType == api.DeviceModeFPGA {
+func newDeviceManager(dmType dmanager.DeviceType) (dmanager.DeviceManager, error) {
+	if dmType == dmanager.DeviceTypeFPGA {
 		return dmanager.NewFpgaDman()
 	} /*elif dmType == api.DeviceModeGPU {
 		return dmanager.NewGpuDman()

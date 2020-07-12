@@ -88,17 +88,17 @@ func NewNodeControllerServer(nodeID string, dm dmanager.DeviceManager, sm state.
 			}
 
 			found := false
-			if v.GetDeviceMode() != dm.GetMode() {
-				dm, err := newDeviceManager(v.GetDeviceMode())
+			if v.GetDeviceType() != dm.GetType() {
+				dm, err := newDeviceManager(v.GetDeviceType())
 				if err != nil {
-					klog.Warningf("Failed to initialize device manager for state volume '%s'(volume mode: '%s'): %v", id, v.GetDeviceMode(), err)
+					klog.Warningf("Failed to initialize device manager for state volume '%s'(device type: '%s'): %v", id, v.GetDeviceType(), err)
 					continue
 				}
 
 				if _, err := dm.GetDevice(id); err == nil {
 					found = true
 				} else if !errors.Is(err, dmanager.ErrDeviceNotFound) {
-					klog.Warningf("Failed to fetch device for state volume '%s'(volume mode: '%s'): %v", id, v.GetDeviceMode(), err)
+					klog.Warningf("Failed to fetch device for state volume '%s'(device type: '%s'): %v", id, v.GetDeviceType(), err)
 					// Let's ignore this volume
 					continue
 				}
@@ -230,8 +230,8 @@ func (cs *nodeControllerServer) createVolumeInternal(ctx context.Context,
 	}
 
 	// Set which device manager was used to create the volume
-	mode := cs.dm.GetMode()
-	p.DeviceMode = &mode
+	dtype := cs.dm.GetType()
+	p.DeviceType = &dtype
 
 	vol := &nodeVolume{
 		ID:     volumeID,
@@ -308,10 +308,10 @@ func (cs *nodeControllerServer) DeleteVolume(ctx context.Context, req *csi.Delet
 	}
 
 	dm := cs.dm
-	if dm.GetMode() != p.GetDeviceMode() {
-		dm, err = newDeviceManager(p.GetDeviceMode())
+	if dm.GetType() != p.GetDeviceType() {
+		dm, err = newDeviceManager(p.GetDeviceType())
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to initialize device manager for volume(ID %q, mode: %s): %v", req.VolumeId, p.GetDeviceMode(), err)
+			return nil, status.Errorf(codes.Internal, "failed to initialize device manager for volume(ID %q, device type: %s): %v", req.VolumeId, p.GetDeviceType(), err)
 		}
 	}
 

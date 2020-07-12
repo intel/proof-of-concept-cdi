@@ -2,8 +2,6 @@ package dmanager
 
 import (
 	"sync"
-
-	api "github.com/intel/cdi/pkg/apis/cdi/v1alpha1"
 )
 
 type fpgaDman struct {
@@ -13,8 +11,8 @@ type fpgaDman struct {
 
 var _ DeviceManager = &fpgaDman{}
 
-func (dm *fpgaDman) GetMode() api.DeviceMode {
-	return api.DeviceModeFPGA
+func (dm *fpgaDman) GetType() DeviceType {
+	return DeviceTypeFPGA
 }
 
 // listDevices Lists available devices
