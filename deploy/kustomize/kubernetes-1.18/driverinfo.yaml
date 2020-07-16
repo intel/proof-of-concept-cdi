@@ -3,5 +3,9 @@ kind: CSIDriver
 metadata:
   name: cdi.intel.com
 spec:
+  # Supports persistent and ephemeral inline volumes.
+  volumeLifecycleModes:
+  - Persistent
+  - Ephemeral
   attachRequired: false
   podInfoOnMount: true
