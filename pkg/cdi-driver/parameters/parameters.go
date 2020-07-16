@@ -136,8 +136,10 @@ type VolumeContext map[string]string
 // error is returned for invalid keys and values and invalid
 // combinations of parameters.
 func Parse(origin Origin, stringmap map[string]string) (Volume, error) {
+	klog.V(4).Infof("Parameters parsing: %s: %v", origin, stringmap)
 	var result Volume
 	validKeys := valid[origin]
+
 	for key, value := range stringmap {
 		valid := false
 		for _, validKey := range validKeys {

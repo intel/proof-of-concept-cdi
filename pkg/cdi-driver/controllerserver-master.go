@@ -155,6 +155,7 @@ func (cs *masterController) OnNodeDeleted(ctx context.Context, node *registryser
 }
 
 func (cs *masterController) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+	klog.V(5).Infof("masterController: CreateVolume: request: %+v", req)
 	var vol *volume
 	chosenNodes := map[string]VolumeStatus{}
 
@@ -280,14 +281,17 @@ func (cs *masterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 	name := req.GetName()
 	p.Name = &name
 
-	return &csi.CreateVolumeResponse{
+	resp := &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:           vol.id,
 			CapacityBytes:      asked,
 			AccessibleTopology: outTopology,
 			VolumeContext:      p.ToContext(),
 		},
-	}, nil
+	}
+
+	klog.V(5).Infof("masterController: CreateVolume: response: %+v", resp)
+	return resp, nil
 }
 
 func (cs *masterController) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {

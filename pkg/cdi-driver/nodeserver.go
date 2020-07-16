@@ -332,6 +332,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+	klog.V(5).Infof("nodeServer: NodeStageVolume: request: %+v", req)
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -399,7 +400,11 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &csi.NodeStageVolumeResponse{}, nil
+	resp := &csi.NodeStageVolumeResponse{}
+
+	klog.V(5).Infof("nodeServer: NodeStageVolume: response: %+v", resp)
+
+	return resp, nil
 }
 
 func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {

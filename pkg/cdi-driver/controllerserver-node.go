@@ -135,6 +135,7 @@ func (cs *nodeControllerServer) RegisterService(rpcServer *grpc.Server) {
 }
 
 func (cs *nodeControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+	klog.V(5).Infof("nodeControllerServer: CreateVolume: request: %+v", req)
 	topology := []*csi.Topology{}
 
 	var resp *csi.CreateVolumeResponse
@@ -184,6 +185,8 @@ func (cs *nodeControllerServer) CreateVolume(ctx context.Context, req *csi.Creat
 			AccessibleTopology: topology,
 		},
 	}
+
+	klog.V(5).Infof("nodeControllerServer: CreateVolume: response: %+v", resp)
 
 	return resp, nil
 }
