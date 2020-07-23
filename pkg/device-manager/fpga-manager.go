@@ -17,9 +17,29 @@ func (dm *fpgaDman) GetType() DeviceType {
 
 // listDevices Lists available devices
 func listDevices() (map[string]*DeviceInfo, error) {
+	// FIXME: discover devices
+	arria10 := &DeviceInfo{
+		Path: "/dev/loop0",
+		Size: 100,
+		Parameters: map[string]string{
+			"vendor":      "0x8086",
+			"interfaceID": "69528db6eb31577a8c3668f9faa081f6",
+			"afuID":       "d8424dc4a4a3c413f89e433683f9040b",
+		},
+	}
+	stratix10 := &DeviceInfo{
+		Path: "/dev/loop1",
+		Size: 100,
+		Parameters: map[string]string{
+			"vendor":      "0x8086",
+			"interfaceID": "bfac4d851ee856fe8c95865ce1bbaa2d",
+			"afuID":       "f7df405cbd7acf7222f144b0b93acd18",
+		},
+	}
+
 	return map[string]*DeviceInfo{
-		"1": &DeviceInfo{},
-		"2": &DeviceInfo{},
+		"0": arria10,
+		"1": stratix10,
 	}, nil
 }
 

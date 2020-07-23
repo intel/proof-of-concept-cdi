@@ -63,6 +63,8 @@ type DeviceInfo struct {
 	Path string
 	//Size size allocated for block device
 	Size uint64
+	// Device parameters, key->value pairs
+	Parameters map[string]string
 }
 
 //DeviceManager interface to manage devices
