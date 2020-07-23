@@ -32,7 +32,7 @@ func init() {
 	/* generic options */
 	flag.StringVar(&config.DriverName, "drivername", "pmem-csi.intel.com", "name of the driver")
 	flag.StringVar(&config.NodeID, "nodeid", "nodeid", "node id")
-	flag.StringVar(&config.Endpoint, "endpoint", "unix:///tmp/pmem-csi.sock", "PMEM CSI endpoint")
+	flag.StringVar(&config.Endpoint, "endpoint", "unix:///var/lib/cdi.intel.com/csi.sock", "CSI endpoint")
 	flag.BoolVar(&config.TestEndpoint, "testEndpoint", false, "also expose controller interface via endpoint (for testing only)")
 	flag.Var(&config.Mode, "mode", "driver run mode: controller or node")
 	flag.StringVar(&config.RegistryEndpoint, "registryEndpoint", "", "endpoint to connect/listen registry server")
