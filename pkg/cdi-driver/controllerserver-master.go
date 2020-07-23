@@ -155,7 +155,7 @@ func (cs *masterController) OnNodeDeleted(ctx context.Context, node *registryser
 }
 
 func (cs *masterController) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	klog.V(5).Infof("masterController: CreateVolume: request: %+v", req)
+	klog.V(5).Infof("masterController.CreateVolume: request: %+v", req)
 	var vol *volume
 	chosenNodes := map[string]VolumeStatus{}
 
@@ -179,23 +179,23 @@ func (cs *masterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 	}
 
 	outTopology := []*csi.Topology{}
-	klog.V(3).Infof("Controller CreateVolume: Name:%v required_bytes:%v limit_bytes:%v", req.Name, asked, req.GetCapacityRange().GetLimitBytes())
+	klog.V(3).Infof("masterController.CreateVolume: Name:%v required_bytes:%v limit_bytes:%v", req.Name, asked, req.GetCapacityRange().GetLimitBytes())
 	if vol = cs.getVolumeByName(req.Name); vol != nil {
 		// Check if the size of existing volume can cover the new request
-		klog.V(4).Infof("CreateVolume: Vol %s exists, Size: %v", req.Name, vol.size)
+		klog.V(4).Infof("masterController.CreateVolume: Vol %s exists, Size: %v", req.Name, vol.size)
 		if vol.size < asked {
 			return nil, status.Error(codes.AlreadyExists, fmt.Sprintf("Smaller volume with the same name:%s already exists", req.Name))
 		}
 
 		chosenNodes = vol.nodeIDs
 	} else {
-		volumeID := GenerateVolumeID("Controller CreateVolume", req.Name)
+		volumeID := GenerateVolumeID("masterController.CreateVolume", req.Name)
 		// Check do we have entry with newly generated VolumeID already
 		if vol := cs.getVolumeByID(volumeID); vol != nil {
 			// if we have, that has to be VolumeID collision, because above we checked
 			// that we don't have entry with such Name. VolumeID collision is very-very
 			// unlikely so we should not get here in any near future, if otherwise state is good.
-			klog.V(3).Infof("Controller CreateVolume: VolumeID:%s collision: existing name:%s new name:%s",
+			klog.V(3).Infof("masterController.CreateVolume: VolumeID:%s collision: existing name:%s new name:%s",
 				volumeID, vol.name, req.Name)
 			return nil, status.Error(codes.Internal, "VolumeID/hash collision, can not create unique Volume ID")
 		}
@@ -265,7 +265,7 @@ func (cs *masterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 		cs.mutex.Lock()
 		defer cs.mutex.Unlock()
 		cs.volumes[volumeID] = vol
-		klog.V(3).Infof("Controller CreateVolume: Record new volume as %v", *vol)
+		klog.V(3).Infof("masterController.CreateVolume: Record new volume as %v", *vol)
 	}
 
 	for node := range chosenNodes {
@@ -290,7 +290,7 @@ func (cs *masterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 		},
 	}
 
-	klog.V(5).Infof("masterController: CreateVolume: response: %+v", resp)
+	klog.V(5).Infof("masterController.CreateVolume: response: %+v", resp)
 	return resp, nil
 }
 
@@ -317,7 +317,7 @@ func (cs *masterController) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 				return nil, status.Error(codes.Internal, "Failed to connect to node "+node+": "+err.Error())
 			}
 			defer conn.Close() // nolint:errcheck
-			klog.V(4).Infof("Asking node %s to delete volume name:%s id:%s", node, vol.name, vol.id)
+			klog.V(4).Infof("Asking node %s to delete volume name:%s id:%s req:%v", node, vol.name, vol.id, req)
 			if _, err := csi.NewControllerClient(conn).DeleteVolume(ctx, req); err != nil {
 				return nil, err
 			}

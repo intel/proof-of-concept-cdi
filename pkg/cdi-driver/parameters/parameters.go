@@ -13,6 +13,7 @@ import (
 
 	dmanager "github.com/intel/cdi/pkg/device-manager"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
 )
 
 type Persistency string
@@ -263,6 +264,7 @@ func Parse(origin Origin, stringmap map[string]string) (Volume, error) {
 		return result, fmt.Errorf("required parameter %q not specified", Size)
 	}
 
+	klog.V(4).Infof("Parameters parsing: %s: result: %v", origin, result)
 	return result, nil
 }
 

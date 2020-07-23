@@ -141,7 +141,7 @@ func (cs *nodeControllerServer) CreateVolume(ctx context.Context, req *csi.Creat
 	var resp *csi.CreateVolumeResponse
 
 	if err := cs.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
-		klog.Errorf("invalid create volume req: %v", req)
+		klog.Errorf("invalid create volume request: %v", req)
 		return nil, err
 	}
 
