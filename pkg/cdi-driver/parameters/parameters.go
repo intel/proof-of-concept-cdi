@@ -16,18 +16,21 @@ import (
 )
 
 type Persistency string
-type Origin int
+type Origin string
 
 // Beware of API and backwards-compatibility breaking when changing these string constants!
 const (
-	CacheSize        = "cacheSize"
-	EraseAfter       = "eraseafter"
-	KataContainers   = "kataContainers"
-	Name             = "name"
-	PersistencyModel = "persistencyModel"
-	VolumeID         = "_id"
-	Size             = "size"
-	DeviceType       = "deviceType"
+	CacheSize          = "cacheSize"
+	EraseAfter         = "eraseafter"
+	KataContainers     = "kataContainers"
+	Name               = "name"
+	PersistencyModel   = "persistencyModel"
+	VolumeID           = "_id"
+	Size               = "size"
+	DeviceType         = "deviceType"
+	Storage            = "storage"
+	StorageProvisioner = "volume.beta.kubernetes.io/storage-provisioner"
+	SelectedNode       = "volume.kubernetes.io/selected-node"
 
 	// Kubernetes v1.16+ adds this key to NodePublishRequest.VolumeContext
 	// while provisioning ephemeral volume.
@@ -44,15 +47,19 @@ const (
 	PersistencyEphemeral Persistency = "ephemeral" // only used internally
 
 	//CreateVolumeOrigin is for parameters from the storage class in controller CreateVolume.
-	CreateVolumeOrigin Origin = iota
+	CreateVolumeOrigin Origin = "CreateVolumeOrigin"
 	// CreateVolumeInternalOrigin is for the node CreateVolume parameters.
-	CreateVolumeInternalOrigin
+	CreateVolumeInternalOrigin = "CreateVolumeInternalOrigin"
 	// EphemeralVolumeOrigin represents parameters for an ephemeral volume in NodePublishVolume.
-	EphemeralVolumeOrigin
+	EphemeralVolumeOrigin = "EphemeralVolumeOrigin"
 	// PersistentVolumeOrigin represents parameters for a persistent volume in NodePublishVolume.
-	PersistentVolumeOrigin
+	PersistentVolumeOrigin = "PersistentVolumeOrigin"
 	// NodeVolumeOrigin is for the parameters stored in node volume list.
-	NodeVolumeOrigin
+	NodeVolumeOrigin = "NodeVolumeOrigin"
+
+	// InterfaceID is an FPGA interface id passed from the storage class and PVC to CreateVolume.
+	InterfaceID = "fpga.intel.com/interfaceID"
+	AfuID       = "fpga.intel.com/afuID"
 )
 
 // valid is a whitelist of which parameters are valid in which context.
@@ -63,6 +70,14 @@ var valid = map[Origin][]string{
 		EraseAfter,
 		KataContainers,
 		PersistencyModel,
+		Storage,
+		StorageProvisioner,
+		SelectedNode,
+
+		// CDI: FPGA parameters from storage class
+		DeviceType,
+		InterfaceID,
+		AfuID,
 	},
 
 	// These parameters are prepared by the master controller.
@@ -109,6 +124,11 @@ var valid = map[Origin][]string{
 		PersistencyModel,
 		Size,
 		DeviceType,
+
+		// CDI: FPGA parameters from storage class
+		DeviceType,
+		InterfaceID,
+		AfuID,
 	},
 }
 
@@ -125,6 +145,8 @@ type Volume struct {
 	Size           *int64
 	VolumeID       *string
 	DeviceType     *dmanager.DeviceType
+	InterfaceID    *string
+	AfuID          *string
 }
 
 // VolumeContext represents the same settings as a string map.
@@ -218,7 +240,14 @@ func Parse(origin Origin, stringmap map[string]string) (Volume, error) {
 				return result, fmt.Errorf("parameter %q: failed to parse %q as DeviceType: %v", key, value, err)
 			}
 			result.DeviceType = &dtype
+		case InterfaceID:
+			result.InterfaceID = &value
+		case AfuID:
+			result.AfuID = &value
 		case ProvisionerID:
+		case Storage:
+		case StorageProvisioner:
+		case SelectedNode:
 		default:
 			if !strings.HasPrefix(key, PodInfoPrefix) {
 				return result, fmt.Errorf("unknown parameter: %q", key)
@@ -270,6 +299,12 @@ func (v Volume) ToContext() VolumeContext {
 	}
 	if v.DeviceType != nil {
 		result[DeviceType] = string(*v.DeviceType)
+	}
+	if v.InterfaceID != nil {
+		result[InterfaceID] = *v.InterfaceID
+	}
+	if v.AfuID != nil {
+		result[AfuID] = *v.AfuID
 	}
 
 	return result
@@ -327,6 +362,22 @@ func (v Volume) GetVolumeID() string {
 func (v Volume) GetDeviceType() dmanager.DeviceType {
 	if v.DeviceType != nil {
 		return *v.DeviceType
+	}
+
+	return ""
+}
+
+func (v Volume) GetInterfaceID() string {
+	if v.InterfaceID != nil {
+		return *v.InterfaceID
+	}
+
+	return ""
+}
+
+func (v Volume) GetAfuID() string {
+	if v.AfuID != nil {
+		return *v.AfuID
 	}
 
 	return ""
