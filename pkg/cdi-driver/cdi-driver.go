@@ -98,21 +98,21 @@ type Config struct {
 	ControllerName string
 	//ControllerEndpoint exported node controller endpoint
 	ControllerEndpoint string
-	//DeviceType device type to use (fpga,gpu)
-	DeviceType dmanager.DeviceType
 	//Directory where to persist the node driver state
 	StateBasePath string
 	//Version driver release version
 	Version string
 }
 
-type csiDriver struct {
+// Driver structure contains driver configuration and TLS configs
+type Driver struct {
 	cfg             Config
 	serverTLSConfig *tls.Config
 	clientTLSConfig *tls.Config
 }
 
-func GetCSIDriver(cfg Config) (*csiDriver, error) {
+// getDriver creates new Driver structure based on passed Config
+func getDriver(cfg Config) (*Driver, error) {
 	validModes := map[DriverMode]struct{}{
 		Controller: struct{}{},
 		Node:       struct{}{},
@@ -167,14 +167,14 @@ func GetCSIDriver(cfg Config) (*csiDriver, error) {
 
 	DriverTopologyKey = cfg.DriverName + "/node"
 
-	return &csiDriver{
+	return &Driver{
 		cfg:             cfg,
 		serverTLSConfig: serverConfig,
 		clientTLSConfig: clientConfig,
 	}, nil
 }
 
-func (csid *csiDriver) Run() error {
+func (csid *Driver) Run() error {
 	// Create GRPC servers
 	ids, err := NewIdentityServer(csid.cfg.DriverName, csid.cfg.Version)
 	if err != nil {
@@ -207,7 +207,7 @@ func (csid *csiDriver) Run() error {
 			}
 		}
 	} else if csid.cfg.Mode == Node {
-		dm, err := newDeviceManager(csid.cfg.DeviceType)
+		dm, err := dmanager.NewDeviceManager(csid.cfg.NodeID)
 		if err != nil {
 			return err
 		}
@@ -269,7 +269,7 @@ func (csid *csiDriver) Run() error {
 	return nil
 }
 
-func (csid *csiDriver) registerNodeController() error {
+func (csid *Driver) registerNodeController() error {
 	var err error
 	var conn *grpc.ClientConn
 
@@ -296,7 +296,7 @@ func (csid *csiDriver) registerNodeController() error {
 	return nil
 }
 
-func (csid *csiDriver) unregisterNodeController() error {
+func (csid *Driver) unregisterNodeController() error {
 	req := &registry.UnregisterControllerRequest{
 		NodeId: csid.cfg.NodeID,
 	}
@@ -355,13 +355,4 @@ func register(ctx context.Context, conn *grpc.ClientConn, req *registry.Register
 	klog.V(4).Info("Registration success")
 
 	return nil
-}
-
-func newDeviceManager(dmType dmanager.DeviceType) (dmanager.DeviceManager, error) {
-	if dmType == dmanager.DeviceTypeFPGA {
-		return dmanager.NewFpgaDman()
-	} /*elif dmType == api.DeviceModeGPU {
-		return dmanager.NewGpuDman()
-	}*/
-	return nil, fmt.Errorf("Unsupported device manager type '%s'", dmType)
 }

@@ -14,13 +14,11 @@ import (
 	"k8s.io/klog"
 
 	common "github.com/intel/cdi/pkg/common"
-	dmanager "github.com/intel/cdi/pkg/device-manager"
 )
 
 var (
 	config = Config{
 		Mode:           Controller,
-		DeviceType:     dmanager.DeviceTypeFPGA,
 		RegistryName:   "cdi-registry",
 		ControllerName: "cdi-node-controller",
 	}
@@ -43,7 +41,6 @@ func init() {
 	flag.StringVar(&config.ClientKeyFile, "clientKeyFile", "", "Client private key associated to client certificate, defaults to 'keyFile'")
 	/* Node mode options */
 	flag.StringVar(&config.ControllerEndpoint, "controllerEndpoint", "", "internal node controller endpoint")
-	flag.Var(&config.DeviceType, "deviceType", "device type, supported types: 'fpga' or 'gpu'")
 	flag.StringVar(&config.StateBasePath, "statePath", "", "Directory path where to persist the state of the driver running on a node, defaults to /var/lib/<drivername>")
 
 	flag.Set("logtostderr", "true")
@@ -58,7 +55,7 @@ func Main() int {
 	klog.V(3).Info("Version: ", version)
 
 	config.Version = version
-	driver, err := GetCSIDriver(config)
+	driver, err := getDriver(config)
 	if err != nil {
 		common.ExitError("failed to initialize driver", err)
 		return 1
