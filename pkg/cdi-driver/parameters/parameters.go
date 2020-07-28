@@ -11,31 +11,23 @@ import (
 	"strconv"
 	"strings"
 
-	dmanager "github.com/intel/cdi/pkg/device-manager"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
 )
 
-type Persistency string
+// Origin defines a key in a validation map to validate parameters
 type Origin string
 
 // Beware of API and backwards-compatibility breaking when changing these string constants!
 const (
 	CacheSize          = "cacheSize"
 	EraseAfter         = "eraseafter"
-	KataContainers     = "kataContainers"
 	Name               = "name"
-	PersistencyModel   = "persistencyModel"
 	VolumeID           = "_id"
 	Size               = "size"
-	DeviceType         = "deviceType"
 	Storage            = "storage"
 	StorageProvisioner = "volume.beta.kubernetes.io/storage-provisioner"
 	SelectedNode       = "volume.kubernetes.io/selected-node"
-
-	// Kubernetes v1.16+ adds this key to NodePublishRequest.VolumeContext
-	// while provisioning ephemeral volume.
-	Ephemeral = "csi.storage.k8s.io/ephemeral"
 
 	// Additional, unknown parameters that are okay.
 	PodInfoPrefix = "csi.storage.k8s.io/"
@@ -43,24 +35,20 @@ const (
 	// Added by https://github.com/kubernetes-csi/external-provisioner/blob/feb67766f5e6af7db5c03ac0f0b16255f696c350/pkg/controller/controller.go#L584
 	ProvisionerID = "storage.kubernetes.io/csiProvisionerIdentity"
 
-	PersistencyNormal    Persistency = "normal" // In releases <= 0.6.x this was called "none", but not documented.
-	PersistencyCache     Persistency = "cache"
-	PersistencyEphemeral Persistency = "ephemeral" // only used internally
-
 	//CreateVolumeOrigin is for parameters from the storage class in controller CreateVolume.
 	CreateVolumeOrigin Origin = "CreateVolumeOrigin"
 	// CreateVolumeInternalOrigin is for the node CreateVolume parameters.
 	CreateVolumeInternalOrigin = "CreateVolumeInternalOrigin"
-	// EphemeralVolumeOrigin represents parameters for an ephemeral volume in NodePublishVolume.
-	EphemeralVolumeOrigin = "EphemeralVolumeOrigin"
 	// PersistentVolumeOrigin represents parameters for a persistent volume in NodePublishVolume.
 	PersistentVolumeOrigin = "PersistentVolumeOrigin"
 	// NodeVolumeOrigin is for the parameters stored in node volume list.
 	NodeVolumeOrigin = "NodeVolumeOrigin"
 
 	// InterfaceID is an FPGA interface id passed from the storage class and PVC to CreateVolume.
-	InterfaceID = "fpga.intel.com/interfaceID"
-	AfuID       = "fpga.intel.com/afuID"
+	DeviceType  = "deviceType"
+	Vendor      = "vendor"
+	InterfaceID = "interfaceID"
+	AfuID       = "afuID"
 )
 
 // valid is a whitelist of which parameters are valid in which context.
@@ -69,14 +57,13 @@ var valid = map[Origin][]string{
 	CreateVolumeOrigin: []string{
 		CacheSize,
 		EraseAfter,
-		KataContainers,
-		PersistencyModel,
 		Storage,
 		StorageProvisioner,
 		SelectedNode,
 
 		// CDI: FPGA parameters from storage class
 		DeviceType,
+		Vendor,
 		InterfaceID,
 		AfuID,
 	},
@@ -85,18 +72,7 @@ var valid = map[Origin][]string{
 	CreateVolumeInternalOrigin: []string{
 		CacheSize,
 		EraseAfter,
-		KataContainers,
-		PersistencyModel,
-
 		VolumeID,
-	},
-
-	// Parameters from Kubernetes and users.
-	EphemeralVolumeOrigin: []string{
-		EraseAfter,
-		KataContainers,
-		PodInfoPrefix,
-		Size,
 	},
 
 	// The volume context prepared by CreateVolume. We replicate
@@ -107,8 +83,6 @@ var valid = map[Origin][]string{
 	PersistentVolumeOrigin: []string{
 		CacheSize,
 		EraseAfter,
-		KataContainers,
-		PersistencyModel,
 
 		Name,
 		PodInfoPrefix,
@@ -120,14 +94,10 @@ var valid = map[Origin][]string{
 	NodeVolumeOrigin: []string{
 		CacheSize,
 		EraseAfter,
-		KataContainers,
 		Name,
-		PersistencyModel,
 		Size,
-		DeviceType,
 
 		// CDI: FPGA parameters from storage class
-		DeviceType,
 		InterfaceID,
 		AfuID,
 	},
@@ -138,16 +108,14 @@ var valid = map[Origin][]string{
 // The accessor functions always return a value, if unset
 // the default.
 type Volume struct {
-	CacheSize      *uint
-	EraseAfter     *bool
-	KataContainers *bool
-	Name           *string
-	Persistency    *Persistency
-	Size           *int64
-	VolumeID       *string
-	DeviceType     *dmanager.DeviceType
-	InterfaceID    *string
-	AfuID          *string
+	EraseAfter  *bool
+	Name        *string
+	Size        *int64
+	VolumeID    *string
+	Vendor      *string
+	DeviceType  *string
+	InterfaceID *string
+	AfuID       *string
 }
 
 // VolumeContext represents the same settings as a string map.
@@ -183,36 +151,6 @@ func Parse(origin Origin, stringmap map[string]string) (Volume, error) {
 		case VolumeID:
 			/* volume id provided by master controller (needed for cache volumes) */
 			result.VolumeID = &value
-		case PersistencyModel:
-			p := Persistency(value)
-			switch p {
-			case PersistencyNormal, PersistencyCache:
-				result.Persistency = &p
-			case PersistencyEphemeral:
-				if origin != NodeVolumeOrigin {
-					return result, fmt.Errorf("parameter %q: value invalid in this context: %q", key, value)
-				}
-				result.Persistency = &p
-			case "none":
-				// Legacy alias from PMEM-CSI <= 0.5.0.
-				p := PersistencyNormal
-				result.Persistency = &p
-			default:
-				return result, fmt.Errorf("parameter %q: unknown value: %q", key, value)
-			}
-		case CacheSize:
-			c, err := strconv.ParseUint(value, 10, 32)
-			if err != nil {
-				return result, fmt.Errorf("parameter %q: failed to parse %q as uint: %v", key, value, err)
-			}
-			u := uint(c)
-			result.CacheSize = &u
-		case KataContainers:
-			b, err := strconv.ParseBool(value)
-			if err != nil {
-				return result, fmt.Errorf("parameter %q: failed to parse %q as boolean: %v", key, value, err)
-			}
-			result.KataContainers = &b
 		case Size:
 			quantity, err := resource.ParseQuantity(value)
 			if err != nil {
@@ -226,21 +164,10 @@ func Parse(origin Origin, stringmap map[string]string) (Volume, error) {
 				return result, fmt.Errorf("parameter %q: failed to parse %q as boolean: %v", key, value, err)
 			}
 			result.EraseAfter = &b
-		case Ephemeral:
-			b, err := strconv.ParseBool(value)
-			if err != nil {
-				return result, fmt.Errorf("parameter %q: failed to parse %q as boolean: %v", key, value, err)
-			}
-			if b {
-				p := PersistencyEphemeral
-				result.Persistency = &p
-			}
 		case DeviceType:
-			var dtype dmanager.DeviceType
-			if err := dtype.Set(value); err != nil {
-				return result, fmt.Errorf("parameter %q: failed to parse %q as DeviceType: %v", key, value, err)
-			}
-			result.DeviceType = &dtype
+			result.DeviceType = &value
+		case Vendor:
+			result.Vendor = &value
 		case InterfaceID:
 			result.InterfaceID = &value
 		case AfuID:
@@ -254,14 +181,6 @@ func Parse(origin Origin, stringmap map[string]string) (Volume, error) {
 				return result, fmt.Errorf("unknown parameter: %q", key)
 			}
 		}
-	}
-
-	// Some sanity checks.
-	if result.CacheSize != nil && result.GetPersistency() != PersistencyCache {
-		return result, fmt.Errorf("parameter %q: invalid for %q = %q", CacheSize, PersistencyModel, result.GetPersistency())
-	}
-	if origin == EphemeralVolumeOrigin && result.Size == nil {
-		return result, fmt.Errorf("required parameter %q not specified", Size)
 	}
 
 	klog.V(4).Infof("Parameters parsing: %s: result: %v", origin, result)
@@ -281,26 +200,20 @@ func (v Volume) ToContext() VolumeContext {
 	// Intentionally not stored:
 	// - volumeID
 
-	if v.CacheSize != nil {
-		result[CacheSize] = fmt.Sprintf("%d", *v.CacheSize)
-	}
 	if v.EraseAfter != nil {
 		result[EraseAfter] = fmt.Sprintf("%v", *v.EraseAfter)
 	}
 	if v.Name != nil {
 		result[Name] = *v.Name
 	}
-	if v.Persistency != nil {
-		result[PersistencyModel] = string(*v.Persistency)
-	}
 	if v.Size != nil {
 		result[Size] = fmt.Sprintf("%d", *v.Size)
 	}
-	if v.KataContainers != nil {
-		result[KataContainers] = fmt.Sprintf("%v", *v.KataContainers)
+	if v.Vendor != nil {
+		result[Vendor] = *v.Vendor
 	}
 	if v.DeviceType != nil {
-		result[DeviceType] = string(*v.DeviceType)
+		result[DeviceType] = *v.DeviceType
 	}
 	if v.InterfaceID != nil {
 		result[InterfaceID] = *v.InterfaceID
@@ -312,25 +225,11 @@ func (v Volume) ToContext() VolumeContext {
 	return result
 }
 
-func (v Volume) GetCacheSize() uint {
-	if v.CacheSize != nil {
-		return *v.CacheSize
-	}
-	return 1
-}
-
-func (v Volume) GetEraseAfter() bool {
+/*func (v Volume) GetEraseAfter() bool {
 	if v.EraseAfter != nil {
 		return *v.EraseAfter
 	}
 	return true
-}
-
-func (v Volume) GetPersistency() Persistency {
-	if v.Persistency != nil {
-		return *v.Persistency
-	}
-	return PersistencyNormal
 }
 
 func (v Volume) GetName() string {
@@ -347,13 +246,6 @@ func (v Volume) GetSize() int64 {
 	return 0
 }
 
-func (v Volume) GetKataContainers() bool {
-	if v.KataContainers != nil {
-		return *v.KataContainers
-	}
-	return false
-}
-
 func (v Volume) GetVolumeID() string {
 	if v.VolumeID != nil {
 		return *v.VolumeID
@@ -361,11 +253,17 @@ func (v Volume) GetVolumeID() string {
 	return ""
 }
 
-func (v Volume) GetDeviceType() dmanager.DeviceType {
+func (v Volume) GetVendor() string {
+	if v.Vendor != nil {
+		return *v.Vendor
+	}
+	return ""
+}
+
+func (v Volume) GetDeviceType() string {
 	if v.DeviceType != nil {
 		return *v.DeviceType
 	}
-
 	return ""
 }
 
@@ -373,7 +271,6 @@ func (v Volume) GetInterfaceID() string {
 	if v.InterfaceID != nil {
 		return *v.InterfaceID
 	}
-
 	return ""
 }
 
@@ -381,6 +278,5 @@ func (v Volume) GetAfuID() string {
 	if v.AfuID != nil {
 		return *v.AfuID
 	}
-
 	return ""
-}
+}*/

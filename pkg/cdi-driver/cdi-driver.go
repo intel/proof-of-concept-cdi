@@ -215,8 +215,11 @@ func (csid *Driver) Run() error {
 		if err != nil {
 			return err
 		}
-		cs := NewNodeControllerServer(csid.cfg.NodeID, dm, sm)
-		ns := NewNodeServer(cs, filepath.Clean(csid.cfg.StateBasePath)+"/mount")
+		cs, err := newNodeControllerServer(csid.cfg.NodeID, dm, sm)
+		if err != nil {
+			return err
+		}
+		ns := newNodeServer(cs, filepath.Clean(csid.cfg.StateBasePath)+"/mount")
 
 		if csid.cfg.Endpoint != csid.cfg.ControllerEndpoint {
 			if err := s.Start(csid.cfg.ControllerEndpoint, csid.serverTLSConfig, cs); err != nil {
