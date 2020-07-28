@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: arria10.nlb0
+  annotations:
+      afuID: "d8424dc4a4a3c413f89e433683f9040b"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1 # storage request is mandatory for pvc
+  storageClassName: arria10

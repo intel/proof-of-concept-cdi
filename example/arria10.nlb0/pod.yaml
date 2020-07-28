@@ -1,0 +1,18 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: cdi-pod
+spec:
+  nodeSelector:
+    storage: "cdi"
+  containers:
+    - name: test-cdi-fpga
+      image: busybox
+      volumeMounts:
+      - mountPath: "/cdi"
+        name: cdi-volume
+      command: [ "sleep", "1000000" ]
+  volumes:
+    - name: cdi-volume
+      persistentVolumeClaim:
+        claimName: arria10.nlb0

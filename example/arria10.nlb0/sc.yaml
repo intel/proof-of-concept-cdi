@@ -1,0 +1,11 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: arria10
+provisioner: cdi.intel.com
+parameters:
+  deviceType: fpga
+  vendor: "0x8086"
+  interfaceID: 69528db6eb31577a8c3668f9faa081f6
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
