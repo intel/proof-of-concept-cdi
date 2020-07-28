@@ -13,16 +13,19 @@ import (
 	"google.golang.org/grpc"
 )
 
-type identityServer struct {
+// IdentityServer defines identity service structure
+type IdentityServer struct {
 	name       string
 	version    string
 	pluginCaps []*csi.PluginCapability
 }
 
-var _ grpcserver.Service = &identityServer{}
+var _ grpcserver.Service = &IdentityServer{}
 
-func NewIdentityServer(name, version string) (*identityServer, error) {
-	return &identityServer{
+// NewIdentityServer creates IdentityServer object that provides
+// CSI Identity service
+func NewIdentityServer(name, version string) (*IdentityServer, error) {
+	return &IdentityServer{
 		name:    name,
 		version: version,
 		pluginCaps: []*csi.PluginCapability{
@@ -44,22 +47,26 @@ func NewIdentityServer(name, version string) (*identityServer, error) {
 	}, nil
 }
 
-func (ids *identityServer) RegisterService(rpcServer *grpc.Server) {
+// RegisterService registers IdentityServer on the registry server
+func (ids *IdentityServer) RegisterService(rpcServer *grpc.Server) {
 	csi.RegisterIdentityServer(rpcServer, ids)
 }
 
-func (ids *identityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
+// GetPluginInfo returns CSI plugin metadata
+func (ids *IdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	return &csi.GetPluginInfoResponse{
 		Name:          ids.name,
 		VendorVersion: ids.version,
 	}, nil
 }
 
-func (ids *identityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+// Probe returns the health and readiness of the CSI plugin
+func (ids *IdentityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	return &csi.ProbeResponse{}, nil
 }
 
-func (ids *identityServer) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
+// GetPluginCapabilities returns available CSI plugin capabilities
+func (ids *IdentityServer) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 
 	return &csi.GetPluginCapabilitiesResponse{
 		Capabilities: ids.pluginCaps,

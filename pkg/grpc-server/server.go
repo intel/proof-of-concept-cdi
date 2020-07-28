@@ -16,22 +16,24 @@ import (
 	"k8s.io/klog"
 )
 
+// Service interface proides RegisterService method that will be called
+// by NonBlockingGRPCServer whenever its about to start a grpc server on an endpoint.
 type Service interface {
-	// RegisterService will be called by NonBlockingGRPCServer whenever
-	// its about to start a grpc server on an endpoint.
 	RegisterService(s *grpc.Server)
 }
 
-// NonBlocking server
+// NonBlockingGRPCServer structure
 type NonBlockingGRPCServer struct {
 	wg      sync.WaitGroup
 	servers []*grpc.Server
 }
 
+// NewNonBlockingGRPCServer creates new NonBlockingGRPCServer object
 func NewNonBlockingGRPCServer() *NonBlockingGRPCServer {
 	return &NonBlockingGRPCServer{}
 }
 
+// Start starts nonblocking GRPC service
 func (s *NonBlockingGRPCServer) Start(endpoint string, tlsConfig *tls.Config, services ...Service) error {
 	if endpoint == "" {
 		return fmt.Errorf("endpoint cannot be empty")
@@ -58,16 +60,19 @@ func (s *NonBlockingGRPCServer) Start(endpoint string, tlsConfig *tls.Config, se
 	return nil
 }
 
+// Wait wraps WaitGrup.wait call
 func (s *NonBlockingGRPCServer) Wait() {
 	s.wg.Wait()
 }
 
+// Stop gracefully stops GRPC servers
 func (s *NonBlockingGRPCServer) Stop() {
 	for _, s := range s.servers {
 		s.GracefulStop()
 	}
 }
 
+// ForceStop force stops GRPC servers
 func (s *NonBlockingGRPCServer) ForceStop() {
 	for _, s := range s.servers {
 		s.Stop()

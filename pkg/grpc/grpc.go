@@ -23,7 +23,7 @@ func unixDialer(addr string, timeout time.Duration) (net.Conn, error) {
 	return net.DialTimeout("unix", addr, timeout)
 }
 
-//Connect is a helper function to initiate a grpc client connection to server running at endpoint using tlsConfig
+// Connect is a helper function to initiate a grpc client connection to server running at endpoint using tlsConfig
 func Connect(endpoint string, tlsConfig *tls.Config, dialOptions ...grpc.DialOption) (*grpc.ClientConn, error) {
 	proto, address, err := parseEndpoint(endpoint)
 	if err != nil {
@@ -51,7 +51,7 @@ func Connect(endpoint string, tlsConfig *tls.Config, dialOptions ...grpc.DialOpt
 	return grpc.Dial(address, dialOptions...)
 }
 
-//NewServer is a helper function to start a grpc server at given endpoint and uses provided tlsConfig
+// NewServer is a helper function to start a grpc server at given endpoint and uses provided tlsConfig
 func NewServer(endpoint string, tlsConfig *tls.Config, opts ...grpc.ServerOption) (*grpc.Server, net.Listener, error) {
 	proto, addr, err := parseEndpoint(endpoint)
 	if err != nil {

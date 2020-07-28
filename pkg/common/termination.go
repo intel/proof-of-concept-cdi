@@ -12,6 +12,8 @@ import (
 	"os"
 )
 
+// ExitError writes error to the file which path is stored
+// in the TERMINATION_LOG_PATH environment variable
 func ExitError(msg string, e error) {
 	str := msg + ": " + e.Error()
 	fmt.Println(str)

@@ -30,6 +30,7 @@ type RegistryListener interface {
 	OnNodeDeleted(ctx context.Context, node *NodeInfo)
 }
 
+// RegistryServer defines a structure for registry server
 type RegistryServer struct {
 	// mutex is used to protect concurrent access of RegistryServer's
 	// data(nodeClients)
@@ -42,6 +43,7 @@ type RegistryServer struct {
 	listeners       map[RegistryListener]struct{}
 }
 
+// NodeInfo structure holds node information
 type NodeInfo struct {
 	//NodeID controller node id
 	NodeID string
@@ -49,6 +51,7 @@ type NodeInfo struct {
 	Endpoint string
 }
 
+// New creates new registry server
 func New(tlsConfig *tls.Config) *RegistryServer {
 	return &RegistryServer{
 		rpcMutex:        keymutex.NewHashed(-1),
@@ -58,11 +61,12 @@ func New(tlsConfig *tls.Config) *RegistryServer {
 	}
 }
 
+// RegisterService registers grpc server on the registry service
 func (rs *RegistryServer) RegisterService(rpcServer *grpc.Server) {
 	registry.RegisterRegistryServer(rpcServer, rs)
 }
 
-//GetNodeController returns the node controller info for given nodeID, error if not found
+// GetNodeController returns the node controller info for given nodeID, error if not found
 func (rs *RegistryServer) GetNodeController(nodeID string) (NodeInfo, error) {
 	rs.mutex.Lock()
 	defer rs.mutex.Unlock()
@@ -75,8 +79,8 @@ func (rs *RegistryServer) GetNodeController(nodeID string) (NodeInfo, error) {
 }
 
 // ConnectToNodeController initiates a connection to controller running at nodeId
-func (rs *RegistryServer) ConnectToNodeController(nodeId string) (*grpc.ClientConn, error) {
-	nodeInfo, err := rs.GetNodeController(nodeId)
+func (rs *RegistryServer) ConnectToNodeController(nodeID string) (*grpc.ClientConn, error) {
+	nodeInfo, err := rs.GetNodeController(nodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,10 +90,12 @@ func (rs *RegistryServer) ConnectToNodeController(nodeId string) (*grpc.ClientCo
 	return cdigrpc.Connect(nodeInfo.Endpoint, rs.clientTLSConfig)
 }
 
+// AddListener adds new listener to a registry server
 func (rs *RegistryServer) AddListener(l RegistryListener) {
 	rs.listeners[l] = struct{}{}
 }
 
+// RegisterController registers new controller
 func (rs *RegistryServer) RegisterController(ctx context.Context, req *registry.RegisterControllerRequest) (*registry.RegisterControllerReply, error) {
 	if req.GetNodeId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Missing NodeId parameter")
@@ -133,6 +139,7 @@ func (rs *RegistryServer) RegisterController(ctx context.Context, req *registry.
 	return &registry.RegisterControllerReply{}, nil
 }
 
+// UnregisterController unregisters controller
 func (rs *RegistryServer) UnregisterController(ctx context.Context, req *registry.UnregisterControllerRequest) (*registry.UnregisterControllerReply, error) {
 	if req.GetNodeId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Missing NodeId parameter")

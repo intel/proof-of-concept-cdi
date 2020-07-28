@@ -2,13 +2,13 @@
 Copyright 2019 Intel Corporation
 
 SPDX-License-Identifier: Apache-2.0
-*/
 
-// Package coverage adds one command line flag similar to
-// -test.coverprofile. The difference is that the file is created
-// during startup with ioutil.Tmpfile (i.e. * gets replaced with
-// a unique string) and then passed to a restarted binary
-// as -test.coverprofile.
+Package coverage adds one command line flag similar to
+-test.coverprofile. The difference is that the file is created
+during startup with ioutil.Tmpfile (i.e. * gets replaced with
+a unique string) and then passed to a restarted binary
+as -test.coverprofile.
+*/
 
 package coverage
 

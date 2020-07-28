@@ -25,13 +25,13 @@ import (
 	"github.com/intel/cdi/pkg/registryserver"
 )
 
-//VolumeStatus type representation for volume status
+// VolumeStatus type representation for volume status
 type VolumeStatus int
 
 const (
-	//Created volume created
+	// Created volume created
 	Created VolumeStatus = iota + 1
-	//Deleted volume deleted
+	// Deleted volume deleted
 	Deleted
 )
 
@@ -48,33 +48,34 @@ type volume struct {
 	nodeIDs map[string]VolumeStatus
 }
 
-type masterController struct {
+// MasterController defines master controller structure
+type MasterController struct {
 	*DefaultControllerServer
-	rs *registryserver.RegistryServer
-	//volumes             map[string]*volume                //map of reqID:Volume
+	rs                  *registryserver.RegistryServer
 	devicesByVolumeName map[string]*dmanager.DeviceInfo   // map volumeName:DeviceInfo
 	devicesByIDs        map[string]*dmanager.DeviceInfo   //map deviceID:DeviceInfo
 	devicesByNodes      map[string][]*dmanager.DeviceInfo // map NodeID:DeviceInfos
 	mutex               sync.Mutex                        // mutex for devices*
 }
 
-var _ csi.ControllerServer = &masterController{}
-var _ grpcserver.Service = &masterController{}
-var _ registryserver.RegistryListener = &masterController{}
+var _ csi.ControllerServer = &MasterController{}
+var _ grpcserver.Service = &MasterController{}
+var _ registryserver.RegistryListener = &MasterController{}
 
-func NewMasterControllerServer(rs *registryserver.RegistryServer) *masterController {
+// NewMasterControllerServer creates MasterController object with a set of CSI capabilities
+// and starts monitoring node additions and deletions to manage list of devices
+func NewMasterControllerServer(rs *registryserver.RegistryServer) *MasterController {
 	serverCaps := []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
 		csi.ControllerServiceCapability_RPC_GET_CAPACITY,
 	}
-	cs := &masterController{
+	cs := &MasterController{
 		DefaultControllerServer: NewDefaultControllerServer(serverCaps),
 		rs:                      rs,
-		//volumes:                 map[string]*volume{},
-		devicesByVolumeName: map[string]*dmanager.DeviceInfo{},
-		devicesByIDs:        map[string]*dmanager.DeviceInfo{},
-		devicesByNodes:      map[string][]*dmanager.DeviceInfo{},
+		devicesByVolumeName:     map[string]*dmanager.DeviceInfo{},
+		devicesByIDs:            map[string]*dmanager.DeviceInfo{},
+		devicesByNodes:          map[string][]*dmanager.DeviceInfo{},
 	}
 
 	rs.AddListener(cs)
@@ -82,13 +83,14 @@ func NewMasterControllerServer(rs *registryserver.RegistryServer) *masterControl
 	return cs
 }
 
-func (cs *masterController) RegisterService(rpcServer *grpc.Server) {
+// RegisterService registers master controller on the registry server
+func (cs *MasterController) RegisterService(rpcServer *grpc.Server) {
 	csi.RegisterControllerServer(rpcServer, cs)
 }
 
 // OnNodeAdded retrieves the existing volumes at recently added Node.
 // It uses ControllerServer.ListVolume() CSI call to retrieve volumes.
-func (cs *masterController) OnNodeAdded(ctx context.Context, node *registryserver.NodeInfo) error {
+func (cs *MasterController) OnNodeAdded(ctx context.Context, node *registryserver.NodeInfo) error {
 	klog.V(5).Infof("OnNodeAdded: node: %+v", *node)
 	conn, err := cs.rs.ConnectToNodeController(node.NodeID)
 	if err != nil {
@@ -127,7 +129,8 @@ func (cs *masterController) OnNodeAdded(ctx context.Context, node *registryserve
 	return nil
 }
 
-func (cs *masterController) OnNodeDeleted(ctx context.Context, node *registryserver.NodeInfo) {
+// OnNodeDeleted deletes node devices when node is deleted
+func (cs *MasterController) OnNodeDeleted(ctx context.Context, node *registryserver.NodeInfo) {
 	klog.V(5).Infof("OnNodeDeleted: node: %s", node.NodeID)
 	if devices, ok := cs.devicesByNodes[node.NodeID]; ok {
 		klog.V(5).Infof("OnNodeDeleted: node %s: removing devices: %+v", node.NodeID, devices)
@@ -138,7 +141,7 @@ func (cs *masterController) OnNodeDeleted(ctx context.Context, node *registryser
 	// TODO: remove all devices with this NodeID from cs.devicesByID
 }
 
-func (cs *masterController) findVolumeNode(volumeID string) (string, error) {
+func (cs *MasterController) findVolumeNode(volumeID string) (string, error) {
 	for node, devices := range cs.devicesByNodes {
 		for _, device := range devices {
 			if device.ID == volumeID {
@@ -151,7 +154,7 @@ func (cs *masterController) findVolumeNode(volumeID string) (string, error) {
 }
 
 // findDevice finds devices satisfying CreateVolumeRequest and its topology info
-func (cs *masterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.DeviceInfo, []*csi.Topology, *string, error) {
+func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.DeviceInfo, []*csi.Topology, *string, error) {
 	klog.V(5).Infof("masterController.findDevice: request: %+v", req)
 	// Collect toplogy requests
 	reqTopology := []*csi.Topology{}
@@ -203,7 +206,10 @@ func (cs *masterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 	return nil, nil, nil, fmt.Errorf("no device found")
 }
 
-func (cs *masterController) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+// CreateVolume is a CSI API call that creates new CSI volume
+// It finds node with a device satisfying requested parameters and informs node controller about device allocation
+// It sets topology info to ensure that workload will be scheduled to the found node
+func (cs *MasterController) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	klog.V(5).Infof("masterController.CreateVolume: request: %+v", req)
 
 	// Validate CreateVolumeRequest
@@ -265,7 +271,9 @@ func (cs *masterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 	return resp, nil
 }
 
-func (cs *masterController) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+// DeleteVolume is a CSI API call that deletes CSI volume
+// It detaches volume from the device and informs node controller about the volume deletion
+func (cs *MasterController) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	if err := cs.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
 		klog.Errorf("invalid delete volume req: %v", req)
 		return nil, err
@@ -314,7 +322,9 @@ func (cs *masterController) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
-func (cs *masterController) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+// ValidateVolumeCapabilities is a CSI call that checks if a pre-provisioned volume
+// has all the capabilities that the Container Orchestration system wants
+func (cs *MasterController) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -352,7 +362,9 @@ func (cs *masterController) ValidateVolumeCapabilities(ctx context.Context, req 
 	}, nil
 }
 
-func (cs *masterController) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+// ListVolumes is a CSI call that returns the information about all the volumes that it knows about
+// as CDI volumes map 1->1 to devices this call lists available devices
+func (cs *MasterController) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	klog.V(5).Info("ListVolumes")
 	if err := cs.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_LIST_VOLUMES); err != nil {
 		klog.Errorf("invalid list volumes req: %v", req)
@@ -433,7 +445,9 @@ func (cs *masterController) ListVolumes(ctx context.Context, req *csi.ListVolume
 	}, nil
 }
 
-func (cs *masterController) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+// GetCapacity is a CSI call that allows the Container Orchestration system to query the capacity of the
+// storage pool from which the controller provisions volumes.
+func (cs *MasterController) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	var capacity int64
 	if err := cs.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_GET_CAPACITY); err != nil {
 		return nil, err
@@ -465,7 +479,7 @@ func (cs *masterController) GetCapacity(ctx context.Context, req *csi.GetCapacit
 	}, nil
 }
 
-func (cs *masterController) getNodeCapacity(ctx context.Context, node registryserver.NodeInfo, req *csi.GetCapacityRequest) (int64, error) {
+func (cs *MasterController) getNodeCapacity(ctx context.Context, node registryserver.NodeInfo, req *csi.GetCapacityRequest) (int64, error) {
 	conn, err := cs.rs.ConnectToNodeController(node.NodeID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to connect to node %s: %s", node.NodeID, err.Error())
@@ -480,28 +494,4 @@ func (cs *masterController) getNodeCapacity(ctx context.Context, node registryse
 	}
 
 	return resp.AvailableCapacity, nil
-}
-
-/*func (cs *masterController) getVolumeByID(volumeID string) *volume {
-	cs.mutex.Lock()
-	defer cs.mutex.Unlock()
-	if vol, ok := cs.volumes[volumeID]; ok {
-		return vol
-	}
-	return nil
-}
-
-func (cs *masterController) getVolumeByName(Name string) *volume {
-	cs.mutex.Lock()
-	defer cs.mutex.Unlock()
-	for _, vol := range cs.volumes {
-		if vol.name == Name {
-			return vol
-		}
-	}
-	return nil
-}*/
-
-func (cs *masterController) ControllerExpandVolume(context.Context, *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
 }

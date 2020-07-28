@@ -46,6 +46,7 @@ func init() {
 	flag.Set("logtostderr", "true")
 }
 
+// Main driver entry point
 func Main() int {
 	if *showVersion {
 		fmt.Println(version)

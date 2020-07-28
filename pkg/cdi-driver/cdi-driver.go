@@ -38,8 +38,10 @@ const (
 	requestTimeout    time.Duration = 10 * time.Second
 )
 
+// DriverMode type
 type DriverMode string
 
+// Set sets driver mode
 func (mode *DriverMode) Set(value string) error {
 	switch value {
 	case string(Controller), string(Node):
@@ -51,56 +53,57 @@ func (mode *DriverMode) Set(value string) error {
 	return nil
 }
 
+// String converts driver mode to string
 func (mode *DriverMode) String() string {
 	return string(*mode)
 }
 
 const (
-	//Controller definition for controller driver mode
+	// Controller definition for controller driver mode
 	Controller DriverMode = "controller"
-	//Node definition for noder driver mode
+	// Node definition for noder driver mode
 	Node DriverMode = "node"
 )
 
 var (
-	//PmemDriverTopologyKey key to use for topology constraint
+	// DriverTopologyKey key to use for topology constraint
 	DriverTopologyKey = ""
 )
 
-//Config type for driver configuration
+// Config type for driver configuration
 type Config struct {
-	//DriverName name of the csi driver
+	// DriverName name of the csi driver
 	DriverName string
-	//NodeID node id on which this csi driver is running
+	// NodeID node id on which this csi driver is running
 	NodeID string
-	//Endpoint exported csi driver endpoint
+	// Endpoint exported csi driver endpoint
 	Endpoint string
-	//TestEndpoint adds the controller service to the server listening on Endpoint.
-	//Only needed for testing.
+	// TestEndpoint adds the controller service to the server listening on Endpoint.
+	// Only needed for testing.
 	TestEndpoint bool
-	//Mode mode fo the driver
+	// Mode mode fo the driver
 	Mode DriverMode
-	//RegistryName exported registry peer name
+	// RegistryName exported registry peer name
 	RegistryName string
-	//RegistryEndpoint exported registry server endpoint
+	// RegistryEndpoint exported registry server endpoint
 	RegistryEndpoint string
-	//CAFile Root certificate authority certificate file
+	// CAFile Root certificate authority certificate file
 	CAFile string
-	//CertFile certificate for server authentication
+	// CertFile certificate for server authentication
 	CertFile string
-	//KeyFile server private key file
+	// KeyFile server private key file
 	KeyFile string
-	//ClientCertFile certificate for client side authentication
+	// ClientCertFile certificate for client side authentication
 	ClientCertFile string
-	//ClientKeyFile client private key
+	// ClientKeyFile client private key
 	ClientKeyFile string
-	//Controller exported node controller peer name
+	// Controller exported node controller peer name
 	ControllerName string
-	//ControllerEndpoint exported node controller endpoint
+	// ControllerEndpoint exported node controller endpoint
 	ControllerEndpoint string
-	//Directory where to persist the node driver state
+	// Directory where to persist the node driver state
 	StateBasePath string
-	//Version driver release version
+	// Version driver release version
 	Version string
 }
 
@@ -140,8 +143,8 @@ func getDriver(cfg Config) (*Driver, error) {
 
 	peerName := cfg.RegistryName
 	if cfg.Mode == Controller {
-		//When driver running in Controller mode, we connect to node controllers
-		//so use appropriate peer name
+		// When driver running in Controller mode, we connect to node controllers
+		// so use appropriate peer name
 		peerName = cfg.ControllerName
 	}
 
@@ -174,6 +177,7 @@ func getDriver(cfg Config) (*Driver, error) {
 	}, nil
 }
 
+// Run starts the driver in controller or node mode
 func (csid *Driver) Run() error {
 	// Create GRPC servers
 	ids, err := NewIdentityServer(csid.cfg.DriverName, csid.cfg.Version)
