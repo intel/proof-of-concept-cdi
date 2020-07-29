@@ -68,13 +68,6 @@ var valid = map[Origin][]string{
 		AfuID,
 	},
 
-	// These parameters are prepared by the master controller.
-	CreateVolumeInternalOrigin: []string{
-		CacheSize,
-		EraseAfter,
-		VolumeID,
-	},
-
 	// The volume context prepared by CreateVolume. We replicate
 	// the CreateVolume parameters in the context because a future
 	// version of PMEM-CSI might need them (the current one
@@ -190,15 +183,8 @@ func Parse(origin Origin, stringmap map[string]string) (Volume, error) {
 // ToContext converts back to a string map for use in
 // CreateVolumeResponse.Volume.VolumeContext and for storing in the
 // node's volume list.
-//
-// Both the volume context and the volume list are persisted outside
-// of PMEM-CSI (one in etcd, the other on disk), so beware when making
-// backwards incompatible changes!
 func (v Volume) ToContext() VolumeContext {
 	result := VolumeContext{}
-
-	// Intentionally not stored:
-	// - volumeID
 
 	if v.EraseAfter != nil {
 		result[EraseAfter] = fmt.Sprintf("%v", *v.EraseAfter)
@@ -224,59 +210,3 @@ func (v Volume) ToContext() VolumeContext {
 
 	return result
 }
-
-/*func (v Volume) GetEraseAfter() bool {
-	if v.EraseAfter != nil {
-		return *v.EraseAfter
-	}
-	return true
-}
-
-func (v Volume) GetName() string {
-	if v.Name != nil {
-		return *v.Name
-	}
-	return ""
-}
-
-func (v Volume) GetSize() int64 {
-	if v.Size != nil {
-		return *v.Size
-	}
-	return 0
-}
-
-func (v Volume) GetVolumeID() string {
-	if v.VolumeID != nil {
-		return *v.VolumeID
-	}
-	return ""
-}
-
-func (v Volume) GetVendor() string {
-	if v.Vendor != nil {
-		return *v.Vendor
-	}
-	return ""
-}
-
-func (v Volume) GetDeviceType() string {
-	if v.DeviceType != nil {
-		return *v.DeviceType
-	}
-	return ""
-}
-
-func (v Volume) GetInterfaceID() string {
-	if v.InterfaceID != nil {
-		return *v.InterfaceID
-	}
-	return ""
-}
-
-func (v Volume) GetAfuID() string {
-	if v.AfuID != nil {
-		return *v.AfuID
-	}
-	return ""
-}*/
