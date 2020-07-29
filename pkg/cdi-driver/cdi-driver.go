@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -223,8 +222,8 @@ func (csid *Driver) Run() error {
 		if err != nil {
 			return err
 		}
-		ns := newNodeServer(cs, filepath.Clean(csid.cfg.StateBasePath)+"/mount")
-
+		//ns := newNodeServer(cs, filepath.Clean(csid.cfg.StateBasePath)+"/mount")
+		ns := newNodeServer(csid.cfg.NodeID, dm)
 		if csid.cfg.Endpoint != csid.cfg.ControllerEndpoint {
 			if err := s.Start(csid.cfg.ControllerEndpoint, csid.serverTLSConfig, cs); err != nil {
 				return err

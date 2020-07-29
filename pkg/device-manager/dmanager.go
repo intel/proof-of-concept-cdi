@@ -1,34 +1,17 @@
 package dmanager
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 
+	"github.com/intel/cdi/pkg/cdispec"
 	"k8s.io/klog"
 )
 
-var (
-	// ErrInvalid invalid argument passed
-	ErrInvalid = os.ErrInvalid
-
-	// ErrPermission no permission to complete the task
-	ErrPermission = os.ErrPermission
-
-	// ErrDeviceExists device with given id already exists
-	ErrDeviceExists = errors.New("device exists")
-
-	// ErrDeviceNotFound device does not exists
-	ErrDeviceNotFound = errors.New("device not found")
-
-	// ErrDeviceInUse device is in use
-	ErrDeviceInUse = errors.New("device in use")
-
-	// ErrDeviceNotReady device not ready yet
-	ErrDeviceNotReady = errors.New("device not ready")
-)
-
-//DeviceInfo represents a block device
+// DeviceInfo represents a block device
 type DeviceInfo struct {
 	// ID is a unique device ID on the node
 	ID string
@@ -63,6 +46,30 @@ func (di *DeviceInfo) Match(params map[string]string) bool {
 	return true
 }
 
+// Marshall writes device info in CDI JSON format
+// https://github.com/container-orchestrated-devices/container-device-interface
+func (di *DeviceInfo) Marshall(path string) error {
+	spec := cdispec.NewCDISpec()
+
+	devs := []*cdispec.Device{}
+	for _, dPath := range di.Paths {
+		devs = append(devs, &cdispec.Device{HostPath: dPath, ContainerPath: dPath})
+	}
+	spec.AddDevice(di.ID, devs)
+
+	data, err := json.MarshalIndent(spec, "", " ")
+	if err != nil {
+		return errors.New("Failed to marshall device info to JSON")
+	}
+
+	err = ioutil.WriteFile(path, data, os.FileMode(0600))
+	if err != nil {
+		return fmt.Errorf("Failed to write CDI JSON to %s: %v", path, err)
+	}
+
+	return nil
+}
+
 // DeviceManager manages list of node devices
 type DeviceManager struct {
 	devices map[string]*DeviceInfo
@@ -87,7 +94,7 @@ func (dm *DeviceManager) GetDevice(ID string) (*DeviceInfo, error) {
 	if dev, ok := dm.devices[ID]; ok {
 		return dev, nil
 	}
-	return nil, ErrDeviceNotFound
+	return nil, fmt.Errorf("Device id %s not found", ID)
 }
 
 // ListDevices returns list of node devices
