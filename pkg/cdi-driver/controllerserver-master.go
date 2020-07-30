@@ -21,32 +21,8 @@ import (
 
 	"github.com/intel/cdi/pkg/cdi-driver/parameters"
 	dmanager "github.com/intel/cdi/pkg/device-manager"
-	grpcserver "github.com/intel/cdi/pkg/grpc-server"
 	"github.com/intel/cdi/pkg/registryserver"
 )
-
-// VolumeStatus type representation for volume status
-type VolumeStatus int
-
-const (
-	// Created volume created
-	Created VolumeStatus = iota + 1
-	// Deleted volume deleted
-	Deleted
-)
-
-type volume struct {
-	// VolumeID published to outside world
-	id string
-	// Name of volume
-	name string
-	// Size of the volume
-	size int64
-	// Device paths
-	paths []string
-	// ID of nodes where the device is discovered
-	nodeIDs map[string]VolumeStatus
-}
 
 // MasterController defines master controller structure
 type MasterController struct {
@@ -58,10 +34,6 @@ type MasterController struct {
 	devicesByNodes      map[string][]*dmanager.DeviceInfo // map NodeID:DeviceInfos
 	mutex               sync.Mutex                        // mutex for devices*
 }
-
-var _ csi.ControllerServer = &MasterController{}
-var _ grpcserver.Service = &MasterController{}
-var _ registryserver.RegistryListener = &MasterController{}
 
 // NewMasterControllerServer creates MasterController object with a set of CSI capabilities
 // and starts monitoring node additions and deletions to manage list of devices
@@ -311,7 +283,7 @@ func (cs *MasterController) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Failed to connect to node %s: %s", node, err.Error())
 		}
-		defer conn.Close() // nolint:errcheck
+		defer conn.Close()
 		klog.V(4).Infof("Asking node %s to delete volume name:%s id:%s req:%v", node, volumeName, volumeID, req)
 		if _, err := csi.NewControllerClient(conn).DeleteVolume(ctx, req); err != nil {
 			return nil, err
@@ -353,9 +325,6 @@ func (cs *MasterController) ValidateVolumeCapabilities(ctx context.Context, req 
 		}
 	}
 
-	/*
-	 * FIXME(avalluri): Need to validate other capabilities against the existing volume
-	 */
 	return &csi.ValidateVolumeCapabilitiesResponse{
 		Confirmed: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
 			VolumeCapabilities: req.VolumeCapabilities,

@@ -25,11 +25,6 @@ type nodeControllerServer struct {
 	dm     *dmanager.DeviceManager
 }
 
-/*var _ csi.ControllerServer = &nodeControllerServer{}
-var _ grpcserver.Service = &nodeControllerServer{}
-
-var nodeVolumeMutex = keymutex.NewHashed(-1)*/
-
 // newNodeControllerServer creates nodeControllerServer
 func newNodeControllerServer(nodeID string, dm *dmanager.DeviceManager, sm state.StateManager) (*nodeControllerServer, error) {
 	serverCaps := []csi.ControllerServiceCapability_RPC_Type{
@@ -76,40 +71,6 @@ func (cs *nodeControllerServer) CreateVolume(ctx context.Context, req *csi.Creat
 
 	return resp, nil
 }
-
-/*
-func (cs *nodeControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	// Check arguments
-	if len(req.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
-	}
-
-	if err := cs.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
-		klog.Errorf("invalid delete volume req: %v", req)
-		return nil, err
-	}
-
-	// Serialize by VolumeId
-	nodeVolumeMutex.LockKey(req.VolumeId)
-	defer nodeVolumeMutex.UnlockKey(req.VolumeId) //nolint: errcheck
-
-	klog.V(4).Infof("Node DeleteVolume: volumeID: %v", req.GetVolumeId())
-	vol := cs.getVolumeByID(req.VolumeId)
-	if vol == nil {
-		// Already deleted.
-		return &csi.DeleteVolumeResponse{}, nil
-	}
-	_, err := parameters.Parse(parameters.NodeVolumeOrigin, vol.Params)
-	if err != nil {
-		// This should never happen because PMEM-CSI itself created these parameters.
-		// But if it happens, better fail and force an admin to recover instead of
-		// potentially destroying data.
-		return nil, status.Errorf(codes.Internal, "previously stored volume parameters for volume with ID %q: %v", req.VolumeId, err)
-	}
-
-	klog.V(4).Infof("Node DeleteVolume: volume %s deleted", req.GetVolumeId())
-	return &csi.DeleteVolumeResponse{}, nil
-}*/
 
 func (cs *nodeControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	// Validate request
