@@ -40,7 +40,13 @@ build: $(CMDS) $(TEST_CMDS) check-go-version-$(GO_BINARY)
 
 # "make test" runs a variety of fast tests.
 test:
-	$(GO) test ./pkg/...
+	@rm -rf $$(pwd)/_work/evil-ca
+	@rm -rf $$(pwd)/_work/cdi-ca
+	@WORKDIR=$$(pwd)/_work/evil-ca ./deploy/setup-ca.sh
+	@WORKDIR=$$(pwd)/_work/cdi-ca ./deploy/setup-ca.sh
+	@cp _work/evil-ca/cdi-node-controller.pem _work/cdi-ca/wrong-node-controller.pem
+	@cp _work/evil-ca/cdi-node-controller-key.pem _work/cdi-ca/wrong-node-controller-key.pem
+	TEST_WORK=$$(pwd)/_work $(GO) test ./pkg/...
 
 # Build production binaries.
 $(CMDS): check-go-version-$(GO_BINARY)
@@ -69,6 +75,7 @@ clean:
 # Kustomize latest release version
 KUSTOMIZE_VERSION=v3.8.0
 _work/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz:
+	@mkdir _work
 	curl -L https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -o $(abspath $@)
 
 _work/kustomize: _work/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz
