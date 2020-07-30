@@ -16,7 +16,6 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
 	dmanager "github.com/intel/cdi/pkg/device-manager"
-	state "github.com/intel/cdi/pkg/state"
 )
 
 type nodeControllerServer struct {
@@ -26,7 +25,7 @@ type nodeControllerServer struct {
 }
 
 // newNodeControllerServer creates nodeControllerServer
-func newNodeControllerServer(nodeID string, dm *dmanager.DeviceManager, sm state.StateManager) (*nodeControllerServer, error) {
+func newNodeControllerServer(nodeID string, dm *dmanager.DeviceManager) (*nodeControllerServer, error) {
 	serverCaps := []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_LIST_VOLUMES,

@@ -22,7 +22,6 @@ import (
 	grpcserver "github.com/intel/cdi/pkg/grpc-server"
 	registry "github.com/intel/cdi/pkg/registry"
 	"github.com/intel/cdi/pkg/registryserver"
-	state "github.com/intel/cdi/pkg/state"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -209,11 +208,7 @@ func (csid *Driver) Run() error {
 		if err != nil {
 			return err
 		}
-		sm, err := state.NewFileState(csid.cfg.StateBasePath)
-		if err != nil {
-			return err
-		}
-		cs, err := newNodeControllerServer(csid.cfg.NodeID, dm, sm)
+		cs, err := newNodeControllerServer(csid.cfg.NodeID, dm)
 		if err != nil {
 			return err
 		}
