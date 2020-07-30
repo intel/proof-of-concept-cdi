@@ -64,17 +64,14 @@ const (
 	Node DriverMode = "node"
 )
 
-var (
-	// DriverTopologyKey key to use for topology constraint
-	DriverTopologyKey = ""
-)
-
 // Config type for driver configuration
 type Config struct {
 	// DriverName name of the csi driver
 	DriverName string
 	// NodeID node id on which this csi driver is running
 	NodeID string
+	// DriverTopologyKey key to use for topology constraint
+	DriverTopologyKey string
 	// Endpoint exported csi driver endpoint
 	Endpoint string
 	// TestEndpoint adds the controller service to the server listening on Endpoint.
@@ -167,8 +164,6 @@ func getDriver(cfg Config) (*Driver, error) {
 		}
 	}
 
-	DriverTopologyKey = cfg.DriverName + "/node"
-
 	return &Driver{
 		cfg:             cfg,
 		serverTLSConfig: serverConfig,
@@ -195,7 +190,7 @@ func (csid *Driver) Run() error {
 
 	if csid.cfg.Mode == Controller {
 		rs := registryserver.New(csid.clientTLSConfig)
-		cs := NewMasterControllerServer(rs)
+		cs := NewMasterControllerServer(rs, csid.cfg.DriverTopologyKey)
 
 		if csid.cfg.Endpoint != csid.cfg.RegistryEndpoint {
 			if err := s.Start(csid.cfg.Endpoint, nil, ids, cs); err != nil {
@@ -223,7 +218,7 @@ func (csid *Driver) Run() error {
 			return err
 		}
 		//ns := newNodeServer(cs, filepath.Clean(csid.cfg.StateBasePath)+"/mount")
-		ns := newNodeServer(csid.cfg.NodeID, dm)
+		ns := newNodeServer(csid.cfg.NodeID, csid.cfg.DriverTopologyKey, dm)
 		if csid.cfg.Endpoint != csid.cfg.ControllerEndpoint {
 			if err := s.Start(csid.cfg.ControllerEndpoint, csid.serverTLSConfig, cs); err != nil {
 				return err

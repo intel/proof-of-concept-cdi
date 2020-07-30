@@ -52,6 +52,7 @@ type volume struct {
 type MasterController struct {
 	*DefaultControllerServer
 	rs                  *registryserver.RegistryServer
+	driverTopologyKey   string
 	devicesByVolumeName map[string]*dmanager.DeviceInfo   // map volumeName:DeviceInfo
 	devicesByIDs        map[string]*dmanager.DeviceInfo   //map deviceID:DeviceInfo
 	devicesByNodes      map[string][]*dmanager.DeviceInfo // map NodeID:DeviceInfos
@@ -64,7 +65,7 @@ var _ registryserver.RegistryListener = &MasterController{}
 
 // NewMasterControllerServer creates MasterController object with a set of CSI capabilities
 // and starts monitoring node additions and deletions to manage list of devices
-func NewMasterControllerServer(rs *registryserver.RegistryServer) *MasterController {
+func NewMasterControllerServer(rs *registryserver.RegistryServer, driverTopologyKey string) *MasterController {
 	serverCaps := []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
@@ -73,6 +74,7 @@ func NewMasterControllerServer(rs *registryserver.RegistryServer) *MasterControl
 	cs := &MasterController{
 		DefaultControllerServer: NewDefaultControllerServer(serverCaps),
 		rs:                      rs,
+		driverTopologyKey:       driverTopologyKey,
 		devicesByVolumeName:     map[string]*dmanager.DeviceInfo{},
 		devicesByIDs:            map[string]*dmanager.DeviceInfo{},
 		devicesByNodes:          map[string][]*dmanager.DeviceInfo{},
@@ -177,7 +179,7 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 					return device, []*csi.Topology{
 						&csi.Topology{
 							Segments: map[string]string{
-								DriverTopologyKey: nodeID,
+								cs.driverTopologyKey: nodeID,
 							},
 						},
 					}, &nodeID, nil
@@ -189,13 +191,13 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 
 	// chose device satisfying topology request
 	for _, topology := range reqTopology {
-		node := topology.Segments[DriverTopologyKey]
+		node := topology.Segments[cs.driverTopologyKey]
 		if device, ok := chosenDevices[node]; ok {
 			klog.V(5).Infof("masterController.findDevice: request: %+v: found device sutisfying topology request: %v", req, device)
 			return device, []*csi.Topology{
 				&csi.Topology{
 					Segments: map[string]string{
-						DriverTopologyKey: node,
+						cs.driverTopologyKey: node,
 					},
 				},
 			}, &node, nil
@@ -454,7 +456,7 @@ func (cs *MasterController) GetCapacity(ctx context.Context, req *csi.GetCapacit
 	}
 
 	if top := req.GetAccessibleTopology(); top != nil {
-		node, err := cs.rs.GetNodeController(top.Segments[DriverTopologyKey])
+		node, err := cs.rs.GetNodeController(top.Segments[cs.driverTopologyKey])
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}

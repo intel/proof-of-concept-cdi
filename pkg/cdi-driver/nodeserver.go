@@ -21,18 +21,20 @@ import (
 )
 
 type nodeServer struct {
-	nodeID   string
-	dm       *dmanager.DeviceManager
-	nodeCaps []*csi.NodeServiceCapability
+	nodeID            string
+	driverTopologyKey string
+	dm                *dmanager.DeviceManager
+	nodeCaps          []*csi.NodeServiceCapability
 }
 
 /* var _ csi.NodeServer = &nodeServer{}
 var _ grpcserver.Service = &nodeServer{}*/
 
-func newNodeServer(nodeID string, dm *dmanager.DeviceManager) *nodeServer {
+func newNodeServer(nodeID, driverTopologyKey string, dm *dmanager.DeviceManager) *nodeServer {
 	return &nodeServer{
-		nodeID: nodeID,
-		dm:     dm,
+		nodeID:            nodeID,
+		driverTopologyKey: driverTopologyKey,
+		dm:                dm,
 		nodeCaps: []*csi.NodeServiceCapability{
 			{
 				Type: &csi.NodeServiceCapability_Rpc{
@@ -54,7 +56,7 @@ func (ns *nodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoReque
 		NodeId: ns.nodeID,
 		AccessibleTopology: &csi.Topology{
 			Segments: map[string]string{
-				DriverTopologyKey: ns.nodeID,
+				ns.driverTopologyKey: ns.nodeID,
 			},
 		},
 	}, nil

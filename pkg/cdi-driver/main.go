@@ -28,7 +28,7 @@ var (
 
 func init() {
 	/* generic options */
-	flag.StringVar(&config.DriverName, "drivername", "pmem-csi.intel.com", "name of the driver")
+	flag.StringVar(&config.DriverName, "drivername", "cdi.intel.com", "name of the driver")
 	flag.StringVar(&config.NodeID, "nodeid", "nodeid", "node id")
 	flag.StringVar(&config.Endpoint, "endpoint", "unix:///var/lib/cdi.intel.com/csi.sock", "CSI endpoint")
 	flag.BoolVar(&config.TestEndpoint, "testEndpoint", false, "also expose controller interface via endpoint (for testing only)")
@@ -56,6 +56,8 @@ func Main() int {
 	klog.V(3).Info("Version: ", version)
 
 	config.Version = version
+	config.DriverTopologyKey = config.DriverName + "/node"
+
 	driver, err := getDriver(config)
 	if err != nil {
 		common.ExitError("failed to initialize driver", err)
