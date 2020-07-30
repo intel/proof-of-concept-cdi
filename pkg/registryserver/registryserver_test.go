@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestPmemRegistry(t *testing.T) {
+func TestCDIRegistry(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Registry Suite")
 }

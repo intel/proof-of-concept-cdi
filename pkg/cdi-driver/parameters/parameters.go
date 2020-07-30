@@ -68,11 +68,7 @@ var valid = map[Origin][]string{
 		AfuID,
 	},
 
-	// The volume context prepared by CreateVolume. We replicate
-	// the CreateVolume parameters in the context because a future
-	// version of PMEM-CSI might need them (the current one
-	// doesn't) and add the volume name for logging purposes.
-	// Kubernetes adds pod info and provisioner ID.
+	// The volume context prepared by CreateVolume.
 	PersistentVolumeOrigin: []string{
 		CacheSize,
 		EraseAfter,
@@ -90,7 +86,7 @@ var valid = map[Origin][]string{
 		Name,
 		Size,
 
-		// CDI: FPGA parameters from storage class
+		// CDI: FPGA parameters
 		InterfaceID,
 		AfuID,
 	},
@@ -114,11 +110,9 @@ type Volume struct {
 // VolumeContext represents the same settings as a string map.
 type VolumeContext map[string]string
 
-// Parse converts the string map that PMEM-CSI is given
-// in CreateVolume (master and node) and NodePublishVolume. Depending
-// on the origin of the string map, different keys are valid. An
-// error is returned for invalid keys and values and invalid
-// combinations of parameters.
+// Parse converts the string map that is given in CreateVolume (master and node).
+// Depending on the origin of the string map, different keys are valid. An error
+// is returned for invalid keys and values and invalid combinations of parameters.
 func Parse(origin Origin, stringmap map[string]string) (Volume, error) {
 	klog.V(4).Infof("Parameters parsing: %s: %v", origin, stringmap)
 	var result Volume
