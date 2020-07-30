@@ -20,6 +20,10 @@ import (
 	dmanager "github.com/intel/cdi/pkg/device-manager"
 )
 
+var (
+	jsonCDI = "CDI.json"
+)
+
 type nodeServer struct {
 	nodeID            string
 	driverTopologyKey string
@@ -66,7 +70,7 @@ func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	klog.V(5).Infof("nodeServer: NodeStageVolume: request: %+v", req)
+	klog.V(5).Infof("NodeStageVolume: request: %+v", req)
 
 	// Check arguments
 	volumeID := req.GetVolumeId()
@@ -100,7 +104,7 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 
 	// Write device info in CDI JSON format
-	targetFile := filepath.Join(targetPath, "CDI.json")
+	targetFile := filepath.Join(targetPath, jsonCDI)
 	err = device.Marshall(targetFile)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to marshall device info to %s: %s", targetFile, err.Error())
@@ -115,7 +119,29 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 }
 
 func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	return &csi.NodeUnstageVolumeResponse{}, nil
+	klog.V(5).Infof("NodeUnStageVolume: request: %+v", req)
+
+	// Check arguments
+	volumeID := req.GetVolumeId()
+	if len(volumeID) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	targetPath := req.GetStagingTargetPath()
+	if len(targetPath) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
+	}
+
+	// Delete JSON file created by NodeStageVolume
+	targetFile := filepath.Join(targetPath, jsonCDI)
+	if _, err := os.Stat(targetFile); err == nil {
+		os.Remove(targetFile)
+		klog.V(5).Infof("NodeUnStageVolume: device %s: %s has been removed", volumeID, targetFile)
+	}
+
+	resp := &csi.NodeUnstageVolumeResponse{}
+	klog.V(5).Infof("NodeUnStageVolume: response: %+v", resp)
+
+	return resp, nil
 }
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
