@@ -72,6 +72,29 @@ func (cs *nodeControllerServer) CreateVolume(ctx context.Context, req *csi.Creat
 	return resp, nil
 }
 
+func (cs *nodeControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	klog.V(5).Infof("nodeControllerServer.DeleteVolume: request: %+v", req)
+
+	// Check arguments
+	deviceID := req.GetVolumeId()
+	if len(deviceID) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+
+	if err := cs.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
+		klog.Errorf("nodeControllerServer.DeleteVolume: invalid delete volume req: %v", req)
+		return nil, err
+	}
+
+	// Deallocate the device from the volume
+	if err := cs.dm.DeAllocate(deviceID); err != nil {
+		return nil, status.Errorf(codes.Internal, "can't deallocate device id %s: error: %+v", deviceID, err)
+	}
+
+	klog.V(5).Infof("nodeControllerServer.DeleteVolume: device %s deallocated", deviceID)
+	return &csi.DeleteVolumeResponse{}, nil
+}
+
 func (cs *nodeControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	// Validate request
 	if len(req.GetVolumeId()) == 0 {

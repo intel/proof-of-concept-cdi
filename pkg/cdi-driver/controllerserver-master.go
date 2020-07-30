@@ -62,8 +62,8 @@ func (cs *MasterController) RegisterService(rpcServer *grpc.Server) {
 	csi.RegisterControllerServer(rpcServer, cs)
 }
 
-// OnNodeAdded retrieves the existing volumes at recently added Node.
-// It uses ControllerServer.ListVolume() CSI call to retrieve volumes.
+// OnNodeAdded retrieves the existing devices at recently added Node.
+// It uses ControllerServer.ListVolume() CSI call to retrieve devices.
 func (cs *MasterController) OnNodeAdded(ctx context.Context, node *registryserver.NodeInfo) error {
 	klog.V(5).Infof("OnNodeAdded: node: %+v", *node)
 	conn, err := cs.rs.ConnectToNodeController(node.NodeID)
@@ -115,7 +115,7 @@ func (cs *MasterController) OnNodeDeleted(ctx context.Context, node *registryser
 	// TODO: remove all devices with this NodeID from cs.devicesByID
 }
 
-func (cs *MasterController) findVolumeNode(volumeID string) (string, error) {
+func (cs *MasterController) findDeviceNode(volumeID string) (string, error) {
 	for node, devices := range cs.devicesByNodes {
 		for _, device := range devices {
 			if device.ID == volumeID {
@@ -264,16 +264,13 @@ func (cs *MasterController) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	// Find device by ID
 	device, ok := cs.devicesByIDs[volumeID]
 	if ok {
-		if device.VolumeName == "" {
-			return nil, status.Error(codes.Internal, "device %s is not assigned to volume")
-		}
 		cs.mutex.Lock()
 		defer cs.mutex.Unlock()
 		delete(cs.devicesByVolumeName, device.VolumeName)
 		volumeName := device.VolumeName
 		device.VolumeName = ""
 
-		node, err := cs.findVolumeNode(volumeID)
+		node, err := cs.findDeviceNode(volumeID)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Failed to find node for volume id %s: %s", volumeID, err.Error())
 		}
