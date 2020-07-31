@@ -5,17 +5,20 @@ go 1.14
 require (
 	github.com/container-storage-interface/spec v1.2.0
 	github.com/golang/protobuf v1.3.2
+	github.com/google/go-cmp v0.3.0 // indirect
+	github.com/kr/pretty v0.1.0 // indirect
 	github.com/kubernetes-csi/csi-lib-utils v0.6.1
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
 	github.com/pkg/errors v0.8.1
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.4.0 // indirect
 	golang.org/x/net v0.0.0-20191112182307-2180aed22343
 	golang.org/x/sys v0.0.0-20191113165036-4c7a9d0fe056 // indirect
+	golang.org/x/text v0.3.2 // indirect
 	google.golang.org/genproto v0.0.0-20191114150713-6bbd007550de // indirect
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
-	k8s.io/apimachinery v0.18.1
+	gopkg.in/yaml.v2 v2.2.8 // indirect
 	k8s.io/klog v1.0.0
 	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
 )

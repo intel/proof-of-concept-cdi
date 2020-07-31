@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
 
-	"github.com/intel/cdi/pkg/cdi-driver/parameters"
 	dmanager "github.com/intel/cdi/pkg/device-manager"
 	"github.com/intel/cdi/pkg/registryserver"
 )
@@ -200,11 +199,6 @@ func (cs *MasterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, status.Error(codes.InvalidArgument, "Name missing in request")
 	}
 
-	params, err := parameters.Parse(parameters.CreateVolumeOrigin, req.Parameters)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
 	capRange := req.GetCapacityRange()
 	reqBytes := capRange.GetRequiredBytes()
 	klog.V(3).Infof("masterController.CreateVolume: Name:%v required_bytes:%v limit_bytes:%v", req.Name, reqBytes, capRange.GetLimitBytes())
@@ -219,9 +213,11 @@ func (cs *MasterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 			VolumeId:           device.ID,
 			CapacityBytes:      reqBytes,
 			AccessibleTopology: topology,
-			VolumeContext:      params.ToContext(),
+			VolumeContext:      req.Parameters,
 		},
 	}
+
+	req.Parameters["ID"] = device.ID
 
 	// Inform Node Controller about new volume
 	conn, err := cs.rs.ConnectToNodeController(*node)

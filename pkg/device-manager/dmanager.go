@@ -11,6 +11,11 @@ import (
 	"k8s.io/klog"
 )
 
+var (
+	// RequiredParameters is a list of mandatory device parameters
+	RequiredParameters = []string{"afuID", "interfaceID", "deviceType", "vendor"}
+)
+
 // DeviceInfo represents a block device
 type DeviceInfo struct {
 	// ID is a unique device ID on the node
@@ -27,7 +32,7 @@ type DeviceInfo struct {
 
 // Match compares passed parameters with device parameters
 func (di *DeviceInfo) Match(params map[string]string) bool {
-	for _, name := range []string{"afuID", "interfaceID", "deviceType", "vendor"} {
+	for _, name := range RequiredParameters {
 		paramValue, ok := params[name]
 		if !ok {
 			klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' not passed", di.ID, name)

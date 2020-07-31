@@ -3,7 +3,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: arria10.nlb0
   annotations:
-      afuID: "d8424dc4a4a3c413f89e433683f9040b"
+    afuID: "d8424dc4a4a3c413f89e433683f9040b"
 spec:
   accessModes:
     - ReadWriteOnce
