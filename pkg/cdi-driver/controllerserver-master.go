@@ -82,6 +82,12 @@ func (cs *MasterController) OnNodeAdded(ctx context.Context, node *registryserve
 	cs.mutex.Lock()
 	defer cs.mutex.Unlock()
 
+	// remove all node device ids from cs.devicesByIDs to ensure
+	// that not reported devices will not stay in cs.devicesByIDs
+	for _, device := range cs.devicesByNodes[node.NodeID] {
+		delete(cs.devicesByIDs, device.ID)
+	}
+
 	// Reset masterController.devices* with received device info
 	cs.devicesByNodes[node.NodeID] = []*dmanager.DeviceInfo{}
 	for _, entry := range resp.Entries {
@@ -95,7 +101,6 @@ func (cs *MasterController) OnNodeAdded(ctx context.Context, node *registryserve
 			Parameters: vol.VolumeContext,
 		}
 		cs.devicesByNodes[node.NodeID] = append(cs.devicesByNodes[node.NodeID], deviceInfo)
-		// TODO: remove not reported ids from cs.devicesByIDs
 		cs.devicesByIDs[vol.VolumeId] = deviceInfo
 		klog.V(5).Infof("OnNodeAdded: added Device %v", *deviceInfo)
 	}
