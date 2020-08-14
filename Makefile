@@ -16,7 +16,7 @@
 GO_BINARY=go
 GO=GOOS=linux CGO_ENABLED=0 GO111MODULE=on $(GO_BINARY)
 IMPORT_PATH=github.com/intel/cdi
-CMDS=cdi-driver
+CMDS=cdi-driver cdi-runc
 TEST_CMDS=$(addsuffix -test,$(CMDS))
 SHELL=bash
 export PWD=$(shell pwd)
