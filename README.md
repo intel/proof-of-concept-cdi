@@ -36,7 +36,7 @@ $ sudo apt-get install golang-cfssl
 4. Create cdi-registry-secrets and cdi-node-secrets
 ```
 $ cd cdi
-$ KUBCONFIG=~/.kube/config ./deploy/setup-ca-k8s.sh
+$ KUBECONFIG=~/.kube/config ./deploy/setup-ca-k8s.sh
 ```
 
 5. Build cdi-driver:canary image
@@ -73,7 +73,7 @@ $ kubectl create -f deploy/kubernetes-1.18/cdi.yaml
 11. Create FPGA storage class and PVC
 ```
 $ kubectl create -f example/arria10.nlb0/sc.yaml
-$ kubectl creaate -f example/arria10.nlb0/pvc.yaml
+$ kubectl create -f example/arria10.nlb0/pvc.yaml
 ```
 
 12. Run example workload
