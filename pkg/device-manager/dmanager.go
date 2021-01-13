@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/intel/cdi/pkg/cdispec"
+	"github.com/intel/cdi/pkg/common"
 	"k8s.io/klog"
 )
 
@@ -32,6 +33,9 @@ type DeviceInfo struct {
 
 // Match compares passed parameters with device parameters
 func (di *DeviceInfo) Match(params map[string]string) bool {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
 	for _, name := range RequiredParameters {
 		paramValue, ok := params[name]
 		if !ok {
@@ -54,6 +58,9 @@ func (di *DeviceInfo) Match(params map[string]string) bool {
 // Marshall writes device info in CDI JSON format
 // https://github.com/container-orchestrated-devices/container-device-interface
 func (di *DeviceInfo) Marshall(path string) error {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
 	spec := cdispec.NewCDISpec()
 
 	devs := []*cdispec.Device{}
@@ -84,6 +91,9 @@ var devManager = &DeviceManager{}
 
 // NewDeviceManager returns device manager
 func NewDeviceManager(nodeID string) (*DeviceManager, error) {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
 	if devManager.devices == nil {
 		devices, err := discoverDevices(nodeID)
 		if err != nil {
@@ -96,6 +106,9 @@ func NewDeviceManager(nodeID string) (*DeviceManager, error) {
 
 // GetDevice returns DeviceInfo by device ID
 func (dm *DeviceManager) GetDevice(ID string) (*DeviceInfo, error) {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
 	if dev, ok := dm.devices[ID]; ok {
 		return dev, nil
 	}
@@ -104,11 +117,17 @@ func (dm *DeviceManager) GetDevice(ID string) (*DeviceInfo, error) {
 
 // ListDevices returns list of node devices
 func (dm *DeviceManager) ListDevices() map[string]*DeviceInfo {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
 	return devManager.devices
 }
 
 // Allocate allocates device to the volume
 func (dm *DeviceManager) Allocate(deviceID, volumeName string) error {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
 	device, err := dm.GetDevice(deviceID)
 	if err != nil {
 		return err
@@ -122,6 +141,9 @@ func (dm *DeviceManager) Allocate(deviceID, volumeName string) error {
 
 // DeAllocate deallocates device from the volume
 func (dm *DeviceManager) DeAllocate(deviceID string) error {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
 	device, err := dm.GetDevice(deviceID)
 	if err != nil {
 		return err
@@ -131,6 +153,9 @@ func (dm *DeviceManager) DeAllocate(deviceID string) error {
 }
 
 func discoverDevices(nodeID string) (map[string]*DeviceInfo, error) {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
 	// FIXME: discover real devices
 	arria10 := &DeviceInfo{
 		ID:    fmt.Sprintf("%s_0", nodeID),
