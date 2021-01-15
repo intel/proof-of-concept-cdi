@@ -12,10 +12,18 @@ import (
 	"k8s.io/klog"
 )
 
-var (
-	// RequiredParameters is a list of mandatory device parameters
-	RequiredParameters = []string{"afuID", "interfaceID", "deviceType", "vendor"}
+const (
+	intelVendor = "0x8086"
 )
+
+var (
+	// CommonRequiredParameters is a list of mandatory device parameters
+	CommonRequiredParameters = []string{"deviceType", "vendor"}
+)
+
+type iDeviceTypeManager interface {
+	discoverDevices() ([]*DeviceInfo, error)
+}
 
 // DeviceInfo represents a block device
 type DeviceInfo struct {
@@ -31,28 +39,57 @@ type DeviceInfo struct {
 	Parameters map[string]string
 }
 
+func (di *DeviceInfo) okParam(params map[string]string, name string) bool {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	paramValue, ok := params[name]
+	if !ok {
+		klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' not passed", di.ID, name)
+		return false
+	}
+	deviceValue, ok := di.Parameters[name]
+	if !ok {
+		klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' doesn't exist", di.ID, name)
+		return false
+	}
+	if deviceValue != paramValue {
+		klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' mismatch: device: '%s', param: '%s'", di.ID, name, deviceValue, paramValue)
+		return false
+	}
+	return true
+}
+
+func (di *DeviceInfo) okParams(params map[string]string, requiredParams []string) bool {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	for _, name := range requiredParams {
+		if !di.okParam(params, name) {
+			return false
+		}
+	}
+	return true
+}
+
 // Match compares passed parameters with device parameters
 func (di *DeviceInfo) Match(params map[string]string) bool {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
-	for _, name := range RequiredParameters {
-		paramValue, ok := params[name]
-		if !ok {
-			klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' not passed", di.ID, name)
-			return false
-		}
-		deviceValue, ok := di.Parameters[name]
-		if !ok {
-			klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' doesn't exist", di.ID, name)
-			return false
-		}
-		if di.Parameters[name] != params[name] {
-			klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' mismatch: device: '%s', param: '%s'", di.ID, name, deviceValue, paramValue)
-			return false
+	if di.okParams(params, CommonRequiredParameters) {
+		deviceType := params["deviceType"]
+		switch {
+		case deviceType == fpgaDeviceType:
+			return di.okParams(params, FPGARequiredParameters)
+		case deviceType == gpuDeviceType:
+			return di.okParams(params, GPURequiredParameters)
+		default:
+			klog.Error("unknown device type:", deviceType)
 		}
 	}
-	return true
+
+	return false
 }
 
 // Marshall writes device info in CDI JSON format
@@ -82,9 +119,13 @@ func (di *DeviceInfo) Marshall(path string) error {
 	return nil
 }
 
+// DeviceInfoMap is a map of deviceinfos
+type DeviceInfoMap map[string]*DeviceInfo
+
 // DeviceManager manages list of node devices
 type DeviceManager struct {
-	devices map[string]*DeviceInfo
+	devices            DeviceInfoMap
+	deviceTypeManagers []iDeviceTypeManager
 }
 
 var devManager = &DeviceManager{}
@@ -94,8 +135,14 @@ func NewDeviceManager(nodeID string) (*DeviceManager, error) {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
+	if devManager.deviceTypeManagers == nil {
+		devManager.deviceTypeManagers = []iDeviceTypeManager{
+			NewFPGAManager(),
+			NewGPUManager(),
+		}
+	}
 	if devManager.devices == nil {
-		devices, err := discoverDevices(nodeID)
+		devices, err := devManager.discoverDevices(nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -152,33 +199,31 @@ func (dm *DeviceManager) DeAllocate(deviceID string) error {
 	return nil
 }
 
-func discoverDevices(nodeID string) (map[string]*DeviceInfo, error) {
+func (dm *DeviceManager) discoverDevices(nodeID string) (DeviceInfoMap, error) {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
-	// FIXME: discover real devices
-	arria10 := &DeviceInfo{
-		ID:    fmt.Sprintf("%s_0", nodeID),
-		Paths: []string{"/dev/loop0"},
-		Size:  100,
-		Parameters: map[string]string{
-			"vendor":      "0x8086",
-			"deviceType":  "fpga",
-			"interfaceID": "69528db6eb31577a8c3668f9faa081f6",
-			"afuID":       "d8424dc4a4a3c413f89e433683f9040b",
-		},
-	}
-	stratix10 := &DeviceInfo{
-		ID:    fmt.Sprintf("%s_1", nodeID),
-		Paths: []string{"/dev/loop1"},
-		Size:  100,
-		Parameters: map[string]string{
-			"vendor":      "0x8086",
-			"deviceType":  "fpga",
-			"interfaceID": "bfac4d851ee856fe8c95865ce1bbaa2d",
-			"afuID":       "f7df405cbd7acf7222f144b0b93acd18",
-		},
+
+	dim := DeviceInfoMap{}
+	for _, deviceTypeManager := range dm.deviceTypeManagers {
+		deviceInfos, err := deviceTypeManager.discoverDevices()
+		if err != nil {
+			klog.Error(err.Error())
+			return nil, err
+		}
+
+		for _, deviceInfo := range deviceInfos {
+			dim.addDeviceInfo(fmt.Sprintf("%s_%d", nodeID, len(dim)), deviceInfo)
+		}
 	}
 
-	return map[string]*DeviceInfo{arria10.ID: arria10, stratix10.ID: stratix10}, nil
+	return dim, nil
+}
+
+func (dim DeviceInfoMap) addDeviceInfo(newDeviceInfoID string, deviceInfo *DeviceInfo) {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	deviceInfo.ID = newDeviceInfoID
+	dim[newDeviceInfoID] = deviceInfo
 }
