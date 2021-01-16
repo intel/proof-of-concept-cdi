@@ -134,7 +134,7 @@ func (cs *MasterController) findDeviceNode(volumeID string) (string, error) {
 // findDevice finds devices satisfying CreateVolumeRequest and its topology info
 func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.DeviceInfo, []*csi.Topology, *string, error) {
 	klog.V(5).Infof("masterController.findDevice: request: %+v", req)
-	// Collect toplogy requests
+	// Collect topology requests
 	reqTopology := []*csi.Topology{}
 	if reqTop := req.GetAccessibilityRequirements(); reqTop != nil {
 		reqTopology = reqTop.Preferred
