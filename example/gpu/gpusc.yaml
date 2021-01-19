@@ -1,0 +1,10 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gpusc
+provisioner: cdi.intel.com
+parameters:
+  deviceType: gpu
+  vendor: "0x8086"
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
