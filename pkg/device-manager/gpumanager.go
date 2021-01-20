@@ -17,7 +17,6 @@ const (
 	devfsDriDirectory = "/dev/dri"
 	gpuDeviceRE       = `^card[0-9]+$`
 	controlDeviceRE   = `^controlD[0-9]+$`
-	vendorString      = "0x8086"
 	gpuDeviceType     = "gpu"
 	gpuDefaultMemory  = "4000000000"
 )
@@ -66,7 +65,7 @@ func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {
 			continue
 		}
 
-		if strings.TrimSpace(string(dat)) != vendorString {
+		if strings.TrimSpace(string(dat)) != intelVendor {
 			klog.V(4).Info("Non-Intel GPU", f.Name())
 			continue
 		}
