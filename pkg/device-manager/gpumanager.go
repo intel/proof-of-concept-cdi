@@ -105,9 +105,5 @@ func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {
 		}
 	}
 
-	if klog.V(5) {
-		klog.Info(deviceInfos)
-	}
-
 	return deviceInfos, nil
 }
