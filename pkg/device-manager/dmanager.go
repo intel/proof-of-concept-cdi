@@ -23,6 +23,7 @@ var (
 
 type iDeviceTypeManager interface {
 	discoverDevices() ([]*DeviceInfo, error)
+	checkParams(di *DeviceInfo, params map[string]string) bool
 }
 
 // DeviceInfo represents a block device
@@ -39,7 +40,7 @@ type DeviceInfo struct {
 	Parameters map[string]string
 }
 
-func (di *DeviceInfo) okParam(params map[string]string, name string) bool {
+func (di *DeviceInfo) checkParam(params map[string]string, name string) bool {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
@@ -60,12 +61,12 @@ func (di *DeviceInfo) okParam(params map[string]string, name string) bool {
 	return true
 }
 
-func (di *DeviceInfo) okParams(params map[string]string, requiredParams []string) bool {
+func (di *DeviceInfo) checkParams(params map[string]string, requiredParams []string) bool {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
 	for _, name := range requiredParams {
-		if !di.okParam(params, name) {
+		if !di.checkParam(params, name) {
 			return false
 		}
 	}
@@ -77,16 +78,8 @@ func (di *DeviceInfo) Match(params map[string]string) bool {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
-	if di.okParams(params, CommonRequiredParameters) {
-		deviceType := params["deviceType"]
-		switch {
-		case deviceType == fpgaDeviceType:
-			return di.okParams(params, FPGARequiredParameters)
-		case deviceType == gpuDeviceType:
-			return di.okParams(params, GPURequiredParameters)
-		default:
-			klog.Error("unknown device type:", deviceType)
-		}
+	if di.checkParams(params, CommonRequiredParameters) {
+		return devManager.checkParams(di, params)
 	}
 
 	return false
@@ -122,24 +115,26 @@ func (di *DeviceInfo) Marshall(path string) error {
 // DeviceInfoMap is a map of deviceinfos
 type DeviceInfoMap map[string]*DeviceInfo
 
+// DeviceTypeManagerMap is a map of device type managers by device type name
+type DeviceTypeManagerMap map[string]iDeviceTypeManager
+
 // DeviceManager manages list of node devices
 type DeviceManager struct {
 	devices            DeviceInfoMap
-	deviceTypeManagers []iDeviceTypeManager
+	deviceTypeManagers DeviceTypeManagerMap
 }
 
-var devManager = &DeviceManager{}
+var devManager = &DeviceManager{
+	deviceTypeManagers: DeviceTypeManagerMap{
+		fpgaDeviceType: NewFPGAManager(),
+		gpuDeviceType:  NewGPUManager(),
+	},
+}
 
 // NewDeviceManager returns device manager
 func NewDeviceManager(nodeID string) (*DeviceManager, error) {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
-	}
-	if devManager.deviceTypeManagers == nil {
-		devManager.deviceTypeManagers = []iDeviceTypeManager{
-			NewFPGAManager(),
-			NewGPUManager(),
-		}
 	}
 	if devManager.devices == nil {
 		devices, err := devManager.discoverDevices(nodeID)
@@ -149,6 +144,17 @@ func NewDeviceManager(nodeID string) (*DeviceManager, error) {
 		devManager.devices = devices
 	}
 	return devManager, nil
+}
+
+func (dm *DeviceManager) checkParams(di *DeviceInfo, params map[string]string) bool {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	dtm, ok := dm.deviceTypeManagers[params["deviceType"]]
+	if ok {
+		return dtm.checkParams(di, params)
+	}
+	return false
 }
 
 // GetDevice returns DeviceInfo by device ID
