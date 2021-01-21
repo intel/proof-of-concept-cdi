@@ -75,8 +75,8 @@ func (cs *nodeControllerServer) DeleteVolume(ctx context.Context, req *csi.Delet
 	klog.V(5).Infof("nodeControllerServer.DeleteVolume: request: %+v", req)
 
 	// Check arguments
-	deviceID := req.GetVolumeId()
-	if len(deviceID) == 0 {
+	volumeID := req.GetVolumeId()
+	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
 
@@ -86,11 +86,11 @@ func (cs *nodeControllerServer) DeleteVolume(ctx context.Context, req *csi.Delet
 	}
 
 	// Deallocate the device from the volume
-	if err := cs.dm.DeAllocate(deviceID); err != nil {
-		return nil, status.Errorf(codes.Internal, "can't deallocate device id %s: error: %+v", deviceID, err)
+	if err := cs.dm.DeAllocate(volumeID); err != nil {
+		return nil, status.Errorf(codes.Internal, "can't deallocate volume id %s: error: %+v", volumeID, err)
 	}
 
-	klog.V(5).Infof("nodeControllerServer.DeleteVolume: device %s deallocated", deviceID)
+	klog.V(5).Infof("nodeControllerServer.DeleteVolume: volume %s deallocated", volumeID)
 	return &csi.DeleteVolumeResponse{}, nil
 }
 

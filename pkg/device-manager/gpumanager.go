@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/intel/cdi/pkg/common"
 	"github.com/pkg/errors"
 	"k8s.io/klog"
@@ -19,11 +20,13 @@ const (
 	controlDeviceRE   = `^controlD[0-9]+$`
 	gpuDeviceType     = "gpu"
 	gpuDefaultMemory  = "4000000000"
+
+	memoryParamName = "memory"
 )
 
 var (
 	// GPURequiredParameters is a list of GPU specific mandatory device parameters
-	GPURequiredParameters = []string{"memory"}
+	GPURequiredParameters = []string{memoryParamName}
 )
 
 // GPUManager manages gpu devices
@@ -47,7 +50,8 @@ func (gm *GPUManager) checkParams(di *DeviceInfo, params map[string]string) bool
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
-	return di.checkParams(params, GPURequiredParameters)
+
+	return di.checkParamFits(params, memoryParamName)
 }
 
 func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {
@@ -106,6 +110,7 @@ func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {
 					"deviceType": gpuDeviceType,
 					"memory":     gpuDefaultMemory,
 				},
+				Volumes: map[string]*csi.Volume{},
 			}
 			deviceInfos = append(deviceInfos, &info)
 		}

@@ -3,11 +3,11 @@ kind: PersistentVolumeClaim
 metadata:
   name: gpuclaim
   annotations:
-    memory: "4000000000"
+    memory: "2000000000"
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 1 # storage request is mandatory for pvc
-  storageClassName: gpusc1
+  storageClassName: gpusc

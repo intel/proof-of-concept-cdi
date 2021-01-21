@@ -6,6 +6,7 @@ import (
 	"path"
 	"regexp"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/intel/cdi/pkg/common"
 	"github.com/intel/intel-device-plugins-for-kubernetes/pkg/fpga"
 	"github.com/pkg/errors"
@@ -127,6 +128,7 @@ func (man *FPGAManager) discoverDevices() ([]*DeviceInfo, error) {
 						"interfaceID": fme.GetInterfaceUUID(),
 						"afuID":       port.GetAcceleratorTypeUUID(),
 					},
+					Volumes: map[string]*csi.Volume{},
 				})
 			}
 		}
