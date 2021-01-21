@@ -74,6 +74,13 @@ func NewFPGAManager() *FPGAManager {
 	}
 }
 
+func (man *FPGAManager) checkParams(di *DeviceInfo, params map[string]string) bool {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	return di.checkParams(params, FPGARequiredParameters)
+}
+
 // Discover FPGA devices
 func (man *FPGAManager) discoverDevices() ([]*DeviceInfo, error) {
 	if klog.V(5) {

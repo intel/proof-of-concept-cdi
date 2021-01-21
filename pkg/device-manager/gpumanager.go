@@ -43,6 +43,13 @@ func NewGPUManager() *GPUManager {
 	}
 }
 
+func (gm *GPUManager) checkParams(di *DeviceInfo, params map[string]string) bool {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	return di.checkParams(params, GPURequiredParameters)
+}
+
 func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
