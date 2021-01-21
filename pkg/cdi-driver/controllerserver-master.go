@@ -148,7 +148,7 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 	for nodeID, devices := range cs.devicesByNodes {
 		for _, device := range devices {
 			if device.Match(req.Parameters) {
-				// if there is no topoloy constrains requested
+				// if there is no topology constraint requested
 				// first found device is OK
 				if len(reqTopology) == 0 {
 					klog.V(5).Infof("masterController.findDevice: request: %+v: found device: %v", req, device)
@@ -238,8 +238,8 @@ func (cs *MasterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 	req.Parameters["ID"] = device.ID
 
 	if _, err := csiClient.CreateVolume(ctx, req); err != nil {
-		klog.Warningf("masterController.CreateVolume: failed to invorm node about volume name:%s id:%s on %s: %s", *node, req.Name, device.ID, err.Error())
-		return nil, status.Errorf(codes.Internal, "failed to invorm node about volume name:%s id:%s on %s: %s", *node, req.Name, device.ID, err.Error())
+		klog.Warningf("masterController.CreateVolume: failed to inform node about volume name:%s id:%s on %s: %s", *node, req.Name, device.ID, err.Error())
+		return nil, status.Errorf(codes.Internal, "failed to inform node about volume name:%s id:%s on %s: %s", *node, req.Name, device.ID, err.Error())
 	}
 
 	klog.V(5).Infof("masterController.CreateVolume: response: %+v", resp)
