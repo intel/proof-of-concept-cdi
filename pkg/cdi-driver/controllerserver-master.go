@@ -153,7 +153,7 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 				if len(reqTopology) == 0 {
 					klog.V(5).Infof("masterController.findDevice: request: %+v: found device: %v", req, device)
 					return device, []*csi.Topology{
-						&csi.Topology{
+						{
 							Segments: map[string]string{
 								cs.driverTopologyKey: nodeID,
 							},
@@ -171,7 +171,7 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 		if device, ok := chosenDevices[node]; ok {
 			klog.V(5).Infof("masterController.findDevice: request: %+v: found device sutisfying topology request: %v", req, device)
 			return device, []*csi.Topology{
-				&csi.Topology{
+				{
 					Segments: map[string]string{
 						cs.driverTopologyKey: node,
 					},
