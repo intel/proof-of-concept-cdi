@@ -235,8 +235,6 @@ func (cs *MasterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	csiClient := csi.NewControllerClient(conn)
 
-	req.Parameters["ID"] = device.ID
-
 	if _, err := csiClient.CreateVolume(ctx, req); err != nil {
 		klog.Warningf("masterController.CreateVolume: failed to inform node about volume name:%s id:%s on %s: %s", *node, req.Name, device.ID, err.Error())
 		return nil, status.Errorf(codes.Internal, "failed to inform node about volume name:%s id:%s on %s: %s", *node, req.Name, device.ID, err.Error())
