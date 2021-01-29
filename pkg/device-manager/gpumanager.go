@@ -109,10 +109,10 @@ func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {
 				Paths: devicePaths,
 				Size:  100,
 				Parameters: map[string]string{
-					"vendor":     intelVendor,
-					"deviceType": gpuDeviceType,
-					"memory":     gpuDefaultMemory,
-					"millicores": gpuDefaultMillicores,
+					vendorParamName:     intelVendor,
+					deviceTypeParamName: gpuDeviceType,
+					memoryParamName:     gpuDefaultMemory,
+					millicoreParamName:  gpuDefaultMillicores,
 				},
 				Volumes: map[string]*csi.Volume{},
 			}

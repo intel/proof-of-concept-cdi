@@ -15,12 +15,14 @@ import (
 )
 
 const (
-	intelVendor = "0x8086"
+	deviceTypeParamName = "deviceType"
+	vendorParamName     = "vendor"
+	intelVendor         = "0x8086"
 )
 
 var (
 	// CommonRequiredParameters is a list of mandatory device parameters
-	CommonRequiredParameters = []string{"deviceType", "vendor"}
+	CommonRequiredParameters = []string{deviceTypeParamName, vendorParamName}
 )
 
 type iDeviceTypeManager interface {

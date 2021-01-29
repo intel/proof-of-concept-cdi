@@ -15,11 +15,13 @@ import (
 
 var (
 	// FPGARequiredParameters is a list of FPGA specific mandatory device parameters
-	FPGARequiredParameters = []string{"afuID", "interfaceID"}
+	FPGARequiredParameters = []string{afuIDParamName, interfaceIDParamName}
 )
 
 const (
-	fpgaDeviceType = "fpga"
+	fpgaDeviceType       = "fpga"
+	interfaceIDParamName = "interfaceID"
+	afuIDParamName       = "afuID"
 
 	// device-specific paths
 	devfsDirectory     = "/dev"
@@ -123,10 +125,10 @@ func (man *FPGAManager) discoverDevices() ([]*DeviceInfo, error) {
 					Paths: []string{port.GetDevPath()},
 					Size:  100,
 					Parameters: map[string]string{
-						"vendor":      intelVendor,
-						"deviceType":  fpgaDeviceType,
-						"interfaceID": fme.GetInterfaceUUID(),
-						"afuID":       port.GetAcceleratorTypeUUID(),
+						vendorParamName:      intelVendor,
+						deviceTypeParamName:  fpgaDeviceType,
+						interfaceIDParamName: fme.GetInterfaceUUID(),
+						afuIDParamName:       port.GetAcceleratorTypeUUID(),
 					},
 					Volumes: map[string]*csi.Volume{},
 				})
