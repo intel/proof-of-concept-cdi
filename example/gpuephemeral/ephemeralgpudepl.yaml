@@ -28,6 +28,7 @@ spec:
               metadata:
                 annotations:
                   memory: "2000000000"
+                  millicores: "300"
               spec:
                 accessModes: [ "ReadWriteOnce" ]
                 storageClassName: gpusc

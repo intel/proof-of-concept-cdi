@@ -14,19 +14,21 @@ import (
 )
 
 const (
-	sysfsDrmDirectory = "/sys/class/drm"
-	devfsDriDirectory = "/dev/dri"
-	gpuDeviceRE       = `^card[0-9]+$`
-	controlDeviceRE   = `^controlD[0-9]+$`
-	gpuDeviceType     = "gpu"
-	gpuDefaultMemory  = "4000000000"
+	sysfsDrmDirectory    = "/sys/class/drm"
+	devfsDriDirectory    = "/dev/dri"
+	gpuDeviceRE          = `^card[0-9]+$`
+	controlDeviceRE      = `^controlD[0-9]+$`
+	gpuDeviceType        = "gpu"
+	gpuDefaultMemory     = "4000000000"
+	gpuDefaultMillicores = "1000"
 
-	memoryParamName = "memory"
+	memoryParamName    = "memory"
+	millicoreParamName = "millicores"
 )
 
 var (
 	// GPURequiredParameters is a list of GPU specific mandatory device parameters
-	GPURequiredParameters = []string{memoryParamName}
+	GPURequiredParameters = []string{memoryParamName, millicoreParamName}
 )
 
 // GPUManager manages gpu devices
@@ -51,7 +53,8 @@ func (gm *GPUManager) checkParams(di *DeviceInfo, params map[string]string) bool
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
 
-	return di.checkParamFits(params, memoryParamName)
+	return di.checkParamFits(params, memoryParamName) &&
+		di.checkParamFits(params, millicoreParamName)
 }
 
 func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {
@@ -109,6 +112,7 @@ func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {
 					"vendor":     intelVendor,
 					"deviceType": gpuDeviceType,
 					"memory":     gpuDefaultMemory,
+					"millicores": gpuDefaultMillicores,
 				},
 				Volumes: map[string]*csi.Volume{},
 			}

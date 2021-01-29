@@ -4,6 +4,7 @@ metadata:
   name: gpuclaim2
   annotations:
     memory: "2000000000"
+    millicores: "400"
 spec:
   accessModes:
     - ReadWriteOnce
