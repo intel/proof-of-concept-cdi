@@ -24,4 +24,4 @@ spec:
       volumes:
         - name: cdi-volume
           persistentVolumeClaim:
-            claimName: gpuclaim
+            claimName: gpuclaim2

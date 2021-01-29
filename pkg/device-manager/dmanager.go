@@ -70,6 +70,8 @@ func (di *DeviceInfo) checkParamFits(params map[string]string, paramName string)
 			quantity, err = resource.ParseQuantity(diValue)
 			if err == nil {
 				diParamAmount, _ := quantity.AsInt64()
+				klog.V(5).Infof("Device %v param %v amount:%v used:%v request:%v",
+					di.ID, paramName, diParamAmount, totalUsedParam, paramAmount)
 				return paramAmount <= (diParamAmount - totalUsedParam)
 			}
 			klog.Warningf("bad device info param %v value %v", paramName, diValue)
