@@ -29,7 +29,7 @@ type MasterController struct {
 	rs                  *registryserver.RegistryServer
 	driverTopologyKey   string
 	devicesByVolumeName map[string]*dmanager.DeviceInfo   // map volumeName:DeviceInfo
-	devicesByIDs        map[string]*dmanager.DeviceInfo   //map deviceID:DeviceInfo
+	devicesByIDs        map[string]*dmanager.DeviceInfo   // map deviceID:DeviceInfo
 	devicesByNodes      map[string][]*dmanager.DeviceInfo // map NodeID:DeviceInfos
 	mutex               sync.Mutex                        // mutex for devices*
 }
