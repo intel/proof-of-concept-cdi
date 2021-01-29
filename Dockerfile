@@ -1,7 +1,7 @@
 # build cdi-driver
-FROM golang:1.14 AS build
+FROM golang:1.15 AS build
 
-ARG GO_VERSION="1.14.4"
+ARG GO_VERSION="1.15.0"
 
 ARG VERSION="unknown"
 ADD . /src/cdi
