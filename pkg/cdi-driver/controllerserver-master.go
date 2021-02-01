@@ -29,7 +29,7 @@ type MasterController struct {
 	rs                  *registryserver.RegistryServer
 	driverTopologyKey   string
 	devicesByVolumeName map[string]*dmanager.DeviceInfo   // map volumeName:DeviceInfo
-	devicesByIDs        map[string]*dmanager.DeviceInfo   //map deviceID:DeviceInfo
+	devicesByIDs        map[string]*dmanager.DeviceInfo   // map deviceID:DeviceInfo
 	devicesByNodes      map[string][]*dmanager.DeviceInfo // map NodeID:DeviceInfos
 	mutex               sync.Mutex                        // mutex for devices*
 }
@@ -99,6 +99,7 @@ func (cs *MasterController) OnNodeAdded(ctx context.Context, node *registryserve
 			ID:         vol.VolumeId,
 			Size:       vol.CapacityBytes,
 			Parameters: vol.VolumeContext,
+			Volumes:    map[string]*csi.Volume{},
 		}
 		cs.devicesByNodes[node.NodeID] = append(cs.devicesByNodes[node.NodeID], deviceInfo)
 		cs.devicesByIDs[vol.VolumeId] = deviceInfo
@@ -148,12 +149,12 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 	for nodeID, devices := range cs.devicesByNodes {
 		for _, device := range devices {
 			if device.Match(req.Parameters) {
-				// if there is no topoloy constrains requested
+				// if there is no topology constraint requested
 				// first found device is OK
 				if len(reqTopology) == 0 {
 					klog.V(5).Infof("masterController.findDevice: request: %+v: found device: %v", req, device)
 					return device, []*csi.Topology{
-						&csi.Topology{
+						{
 							Segments: map[string]string{
 								cs.driverTopologyKey: nodeID,
 							},
@@ -171,7 +172,7 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 		if device, ok := chosenDevices[node]; ok {
 			klog.V(5).Infof("masterController.findDevice: request: %+v: found device sutisfying topology request: %v", req, device)
 			return device, []*csi.Topology{
-				&csi.Topology{
+				{
 					Segments: map[string]string{
 						cs.driverTopologyKey: node,
 					},
@@ -204,22 +205,27 @@ func (cs *MasterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, status.Error(codes.InvalidArgument, "Name missing in request")
 	}
 
+	volumeName := req.GetName()
 	capRange := req.GetCapacityRange()
 	reqBytes := capRange.GetRequiredBytes()
-	klog.V(3).Infof("masterController.CreateVolume: Name:%v required_bytes:%v limit_bytes:%v", req.Name, reqBytes, capRange.GetLimitBytes())
+	klog.V(3).Infof("masterController.CreateVolume: Name:%v required_bytes:%v limit_bytes:%v", volumeName, reqBytes, capRange.GetLimitBytes())
+
+	cs.mutex.Lock()
+	defer cs.mutex.Unlock()
 
 	device, topology, node, err := cs.findDevice(req)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
+	volume := &csi.Volume{
+		VolumeId:           volumeName,
+		CapacityBytes:      reqBytes,
+		AccessibleTopology: topology,
+		VolumeContext:      req.Parameters,
+	}
 	resp := &csi.CreateVolumeResponse{
-		Volume: &csi.Volume{
-			VolumeId:           device.ID,
-			CapacityBytes:      reqBytes,
-			AccessibleTopology: topology,
-			VolumeContext:      req.Parameters,
-		},
+		Volume: volume,
 	}
 
 	req.Parameters["ID"] = device.ID
@@ -235,12 +241,13 @@ func (cs *MasterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	csiClient := csi.NewControllerClient(conn)
 
-	req.Parameters["ID"] = device.ID
-
 	if _, err := csiClient.CreateVolume(ctx, req); err != nil {
-		klog.Warningf("masterController.CreateVolume: failed to invorm node about volume name:%s id:%s on %s: %s", *node, req.Name, device.ID, err.Error())
-		return nil, status.Errorf(codes.Internal, "failed to invorm node about volume name:%s id:%s on %s: %s", *node, req.Name, device.ID, err.Error())
+		klog.Warningf("masterController.CreateVolume: failed to inform node about volume name:%s id:%s on %s: %s", *node, volumeName, device.ID, err.Error())
+		return nil, status.Errorf(codes.Internal, "failed to inform node about volume name:%s id:%s on %s: %s", *node, volumeName, device.ID, err.Error())
 	}
+
+	cs.devicesByVolumeName[volumeName] = device
+	device.Volumes[volumeName] = volume
 
 	klog.V(5).Infof("masterController.CreateVolume: response: %+v", resp)
 	return resp, nil
@@ -254,26 +261,25 @@ func (cs *MasterController) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		return nil, err
 	}
 
-	// Get volume id
-	volumeID := req.GetVolumeId()
-	if len(volumeID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	// Get volume name (we currently store name into volume ID)
+	volumeName := req.GetVolumeId()
+	if len(volumeName) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
 	}
 
-	klog.V(4).Infof("DeleteVolume: requested volumeID: %v", volumeID)
+	klog.V(4).Infof("DeleteVolume: requested volume name: %v", volumeName)
 
 	// Find device by ID
-	device, ok := cs.devicesByIDs[volumeID]
+	device, ok := cs.devicesByVolumeName[volumeName]
 	if ok {
 		cs.mutex.Lock()
 		defer cs.mutex.Unlock()
-		delete(cs.devicesByVolumeName, device.VolumeName)
-		volumeName := device.VolumeName
-		device.VolumeName = ""
+		delete(cs.devicesByVolumeName, volumeName)
+		delete(device.Volumes, volumeName)
 
-		node, err := cs.findDeviceNode(volumeID)
+		node, err := cs.findDeviceNode(device.ID)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Failed to find node for volume id %s: %s", volumeID, err.Error())
+			return nil, status.Errorf(codes.Internal, "Failed to find node for device id %s: %s", device.ID, err.Error())
 		}
 
 		// Call DeleteVolume on node controller
@@ -282,13 +288,13 @@ func (cs *MasterController) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 			return nil, status.Errorf(codes.Internal, "Failed to connect to node %s: %s", node, err.Error())
 		}
 		defer conn.Close()
-		klog.V(4).Infof("Asking node %s to delete volume name:%s id:%s req:%v", node, volumeName, volumeID, req)
+		klog.V(4).Infof("Asking node %s to delete volume name:%s device id:%s req:%v", node, volumeName, device.ID, req)
 		if _, err := csi.NewControllerClient(conn).DeleteVolume(ctx, req); err != nil {
 			return nil, err
 		}
-		klog.V(4).Infof("Controller DeleteVolume: volume name:%s id:%s deleted", volumeName, volumeID)
+		klog.V(4).Infof("Controller DeleteVolume: volume name:%s device id:%s deleted", volumeName, device.ID)
 	} else {
-		klog.Warningf("Volume %s not created by this controller", volumeID)
+		klog.Warningf("Volume %s not created by this controller", volumeName)
 	}
 
 	return &csi.DeleteVolumeResponse{}, nil

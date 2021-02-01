@@ -73,7 +73,11 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	klog.V(5).Infof("NodeStageVolume: request: %+v", req)
 
 	// Check arguments
+	deviceID := req.VolumeContext["ID"]
 	volumeID := req.GetVolumeId()
+	if len(deviceID) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Device ID missing in request")
+	}
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
@@ -98,9 +102,9 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		return nil, status.Errorf(codes.Internal, "Failed to create target path %s: %v", targetPath, err)
 	}
 
-	device, err := ns.dm.GetDevice(volumeID)
+	device, err := ns.dm.GetDevice(deviceID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to get device for the volume %s: %s", volumeID, err.Error())
+		return nil, status.Errorf(codes.Internal, "Failed to get device for the deviceID %s: %s", deviceID, err.Error())
 	}
 
 	// Write device info in CDI JSON format
@@ -110,7 +114,7 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		return nil, status.Errorf(codes.Internal, "failed to marshall device info to %s: %s", targetFile, err.Error())
 	}
 
-	klog.V(5).Infof("NodeStageVolume: volume %s has been staged on the path %s", volumeID, targetFile)
+	klog.V(5).Infof("NodeStageVolume: volume %s for device %s has been staged on the path %s", volumeID, deviceID, targetFile)
 
 	resp := &csi.NodeStageVolumeResponse{}
 	klog.V(5).Infof("NodeStageVolume: response: %+v", resp)
@@ -135,7 +139,7 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	targetFile := filepath.Join(targetPath, jsonCDI)
 	if _, err := os.Stat(targetFile); err == nil {
 		os.Remove(targetFile)
-		klog.V(5).Infof("NodeUnStageVolume: device %s: %s has been removed", volumeID, targetFile)
+		klog.V(5).Infof("NodeUnStageVolume: volume %s: %s has been removed", volumeID, targetFile)
 	}
 
 	resp := &csi.NodeUnstageVolumeResponse{}

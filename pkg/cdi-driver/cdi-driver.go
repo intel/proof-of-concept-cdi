@@ -112,8 +112,8 @@ type Driver struct {
 // getDriver creates new Driver structure based on passed Config
 func getDriver(cfg Config) (*Driver, error) {
 	validModes := map[DriverMode]struct{}{
-		Controller: struct{}{},
-		Node:       struct{}{},
+		Controller: {},
+		Node:       {},
 	}
 	var serverConfig *tls.Config
 	var clientConfig *tls.Config

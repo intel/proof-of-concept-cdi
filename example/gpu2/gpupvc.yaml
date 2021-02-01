@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: gpuclaim
+  name: gpuclaim2
   annotations:
-    memory: "4000000000"
+    memory: "2000000000"
     millicores: "400"
 spec:
   accessModes:
@@ -11,4 +11,4 @@ spec:
   resources:
     requests:
       storage: 1 # storage request is mandatory for pvc
-  storageClassName: gpusc1
+  storageClassName: gpusc2

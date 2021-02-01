@@ -7,18 +7,22 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/intel/cdi/pkg/cdispec"
 	"github.com/intel/cdi/pkg/common"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
 )
 
 const (
-	intelVendor = "0x8086"
+	deviceTypeParamName = "deviceType"
+	vendorParamName     = "vendor"
+	intelVendor         = "0x8086"
 )
 
 var (
 	// CommonRequiredParameters is a list of mandatory device parameters
-	CommonRequiredParameters = []string{"deviceType", "vendor"}
+	CommonRequiredParameters = []string{deviceTypeParamName, vendorParamName}
 )
 
 type iDeviceTypeManager interface {
@@ -30,14 +34,76 @@ type iDeviceTypeManager interface {
 type DeviceInfo struct {
 	// ID is a unique device ID on the node
 	ID string
-	// VolumeName is set when device is allocated
-	VolumeName string
+	// Volumes are set when device is allocated
+	Volumes map[string]*csi.Volume
 	// Paths list of actual device paths
 	Paths []string
 	// Size size allocated for block device
 	Size int64
 	// Device parameters, key->value pairs
 	Parameters map[string]string
+}
+
+func totalUsedParam(volumes map[string]*csi.Volume, paramName string) int64 {
+	totalUsedParam := int64(0)
+	for _, volume := range volumes {
+		if paramValue, ok := volume.VolumeContext[paramName]; ok {
+			quantity, err := resource.ParseQuantity(paramValue)
+			if err == nil {
+				if paramAmount, _ := quantity.AsInt64(); paramAmount > 0 {
+					totalUsedParam += paramAmount
+				}
+			}
+		}
+	}
+	return totalUsedParam
+}
+func (di *DeviceInfo) checkParamFits(params map[string]string, paramName string) bool {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	if di.checkParamExists(params, paramName) {
+		paramValue := params[paramName]
+		quantity, err := resource.ParseQuantity(paramValue)
+		if err == nil {
+			totalUsedParam := totalUsedParam(di.Volumes, paramName)
+			paramAmount, _ := quantity.AsInt64()
+			diValue := di.Parameters[paramName]
+			quantity, err = resource.ParseQuantity(diValue)
+			if err == nil {
+				diParamAmount, _ := quantity.AsInt64()
+				klog.V(5).Infof("Device %v param %v amount:%v used:%v request:%v",
+					di.ID, paramName, diParamAmount, totalUsedParam, paramAmount)
+				return paramAmount <= (diParamAmount - totalUsedParam)
+			}
+			klog.Warningf("bad device info param %v value %v", paramName, diValue)
+		} else {
+			klog.Warningf("bad param %v value %v", paramName, paramValue)
+		}
+	}
+
+	return false
+}
+
+func (di *DeviceInfo) checkParamExists(params map[string]string, name string) bool {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	_, ok := params[name]
+	if !ok {
+		klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' not passed", di.ID, name)
+		klog.V(5).Info("DI params:", di.Parameters)
+		klog.V(5).Info("in params:", params)
+		return false
+	}
+	_, ok = di.Parameters[name]
+	if !ok {
+		klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' doesn't exist", di.ID, name)
+		klog.V(5).Info("DI params:", di.Parameters)
+		klog.V(5).Info("in params:", params)
+		return false
+	}
+	return true
 }
 
 func (di *DeviceInfo) checkParam(params map[string]string, name string) bool {
@@ -120,8 +186,9 @@ type DeviceTypeManagerMap map[string]iDeviceTypeManager
 
 // DeviceManager manages list of node devices
 type DeviceManager struct {
-	devices            DeviceInfoMap
-	deviceTypeManagers DeviceTypeManagerMap
+	devicesByDeviceID   DeviceInfoMap
+	devicesByVolumeName DeviceInfoMap
+	deviceTypeManagers  DeviceTypeManagerMap
 }
 
 var devManager = &DeviceManager{
@@ -136,12 +203,15 @@ func NewDeviceManager(nodeID string) (*DeviceManager, error) {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
-	if devManager.devices == nil {
+	if devManager.devicesByDeviceID == nil {
 		devices, err := devManager.discoverDevices(nodeID)
 		if err != nil {
 			return nil, err
 		}
-		devManager.devices = devices
+		devManager.devicesByDeviceID = devices
+	}
+	if devManager.devicesByVolumeName == nil {
+		devManager.devicesByVolumeName = DeviceInfoMap{}
 	}
 	return devManager, nil
 }
@@ -162,21 +232,32 @@ func (dm *DeviceManager) GetDevice(ID string) (*DeviceInfo, error) {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
-	if dev, ok := dm.devices[ID]; ok {
+	if dev, ok := dm.devicesByDeviceID[ID]; ok {
 		return dev, nil
 	}
 	return nil, fmt.Errorf("Device id %s not found", ID)
 }
 
-// ListDevices returns list of node devices
-func (dm *DeviceManager) ListDevices() map[string]*DeviceInfo {
+// GetDeviceForVolume returns DeviceInfo by volume name
+func (dm *DeviceManager) GetDeviceForVolume(volumeName string) (*DeviceInfo, error) {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
-	return devManager.devices
+	if dev, ok := dm.devicesByVolumeName[volumeName]; ok {
+		return dev, nil
+	}
+	return nil, fmt.Errorf("Device for volume %s not found", volumeName)
 }
 
-// Allocate allocates device to the volume
+// ListDevices returns list of node devices
+func (dm *DeviceManager) ListDevices() DeviceInfoMap {
+	if klog.V(5) {
+		defer klog.Info(common.Etrace("-> ") + " ->")
+	}
+	return devManager.devicesByDeviceID
+}
+
+// Allocate allocates volume to the device
 func (dm *DeviceManager) Allocate(deviceID, volumeName string) error {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
@@ -185,23 +266,26 @@ func (dm *DeviceManager) Allocate(deviceID, volumeName string) error {
 	if err != nil {
 		return err
 	}
-	if device.VolumeName != "" {
-		return fmt.Errorf("device %s is already allocated to the volume %s", device.ID, device.VolumeName)
+	if _, ok := device.Volumes[volumeName]; ok {
+		return fmt.Errorf("device %s is already allocated to the volume %s", device.ID, volumeName)
 	}
-	device.VolumeName = volumeName
+	device.Volumes[volumeName] = nil
+	dm.devicesByVolumeName[volumeName] = device
 	return nil
 }
 
-// DeAllocate deallocates device from the volume
-func (dm *DeviceManager) DeAllocate(deviceID string) error {
+// DeAllocate deallocates volume from the device
+func (dm *DeviceManager) DeAllocate(volumeName string) error {
 	if klog.V(5) {
-		defer klog.Info(common.Etrace("-> ") + " ->")
+		defer klog.Info(common.Etrace("-> ", "volumeName:"+volumeName) + " ->")
 	}
-	device, err := dm.GetDevice(deviceID)
+	device, err := dm.GetDeviceForVolume(volumeName)
 	if err != nil {
 		return err
 	}
-	device.VolumeName = ""
+
+	delete(device.Volumes, volumeName)
+	delete(dm.devicesByVolumeName, volumeName)
 	return nil
 }
 

@@ -13,6 +13,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	google.golang.org/grpc v1.27.0
+	k8s.io/apimachinery v0.19.3
 	k8s.io/klog v1.0.0
 	k8s.io/utils v0.0.0-20200912215256-4140de9c8800
 )
