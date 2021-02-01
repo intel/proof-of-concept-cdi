@@ -166,7 +166,9 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 		}
 	}
 
-	// chose device satisfying topology request
+	klog.V(5).Infof("masterController.findDevice: chosenDevices now %v", chosenDevices)
+
+	// choose device satisfying topology request
 	for _, topology := range reqTopology {
 		node := topology.Segments[cs.driverTopologyKey]
 		if device, ok := chosenDevices[node]; ok {
@@ -179,6 +181,17 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 				},
 			}, &node, nil
 		}
+	}
+
+	// just choose the first found device as the final fallback solution
+	for nodeID, device := range chosenDevices {
+		return device, []*csi.Topology{
+			{
+				Segments: map[string]string{
+					cs.driverTopologyKey: nodeID,
+				},
+			},
+		}, &nodeID, nil
 	}
 
 	klog.V(5).Infof("masterController.findDevice: request: %+v: device not found", req)
