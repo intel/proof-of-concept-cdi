@@ -10,6 +10,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/intel/cdi/pkg/common"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
 	"k8s.io/klog"
 )
 
@@ -48,13 +49,20 @@ func NewGPUManager() *GPUManager {
 	}
 }
 
-func (gm *GPUManager) checkParams(di *DeviceInfo, params map[string]string) bool {
+func (gm *GPUManager) checkParams(di *DeviceInfo, params map[string]string) codes.Code {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
 
-	return di.checkParamFits(params, memoryParamName) &&
-		di.checkParamFits(params, millicoreParamName)
+	c1 := di.checkParamFits(params, memoryParamName)
+	c2 := di.checkParamFits(params, millicoreParamName)
+	if c1 == codes.OK && c2 == codes.OK {
+		return codes.OK
+	}
+	if c1 == codes.ResourceExhausted || c2 == codes.ResourceExhausted {
+		return codes.ResourceExhausted
+	}
+	return codes.NotFound
 }
 
 func (gm *GPUManager) discoverDevices() ([]*DeviceInfo, error) {

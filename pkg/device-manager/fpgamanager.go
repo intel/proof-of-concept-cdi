@@ -10,6 +10,7 @@ import (
 	"github.com/intel/cdi/pkg/common"
 	"github.com/intel/intel-device-plugins-for-kubernetes/pkg/fpga"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
 	"k8s.io/klog"
 )
 
@@ -77,7 +78,7 @@ func NewFPGAManager() *FPGAManager {
 	}
 }
 
-func (man *FPGAManager) checkParams(di *DeviceInfo, params map[string]string) bool {
+func (man *FPGAManager) checkParams(di *DeviceInfo, params map[string]string) codes.Code {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
