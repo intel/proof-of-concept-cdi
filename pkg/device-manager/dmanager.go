@@ -10,6 +10,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/intel/cdi/pkg/cdispec"
 	"github.com/intel/cdi/pkg/common"
+	"google.golang.org/grpc/codes"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
 )
@@ -27,7 +28,7 @@ var (
 
 type iDeviceTypeManager interface {
 	discoverDevices() ([]*DeviceInfo, error)
-	checkParams(di *DeviceInfo, params map[string]string) bool
+	checkParams(di *DeviceInfo, params map[string]string) codes.Code
 }
 
 // DeviceInfo represents a block device
@@ -58,7 +59,7 @@ func totalUsedParam(volumes map[string]*csi.Volume, paramName string) int64 {
 	}
 	return totalUsedParam
 }
-func (di *DeviceInfo) checkParamFits(params map[string]string, paramName string) bool {
+func (di *DeviceInfo) checkParamFits(params map[string]string, paramName string) codes.Code {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
@@ -74,7 +75,13 @@ func (di *DeviceInfo) checkParamFits(params map[string]string, paramName string)
 				diParamAmount, _ := quantity.AsInt64()
 				klog.V(5).Infof("Device %v param %v amount:%v used:%v request:%v",
 					di.ID, paramName, diParamAmount, totalUsedParam, paramAmount)
-				return paramAmount <= (diParamAmount - totalUsedParam)
+				if paramAmount <= (diParamAmount - totalUsedParam) {
+					return codes.OK
+				}
+				if paramAmount <= diParamAmount {
+					return codes.ResourceExhausted
+				}
+				return codes.NotFound
 			}
 			klog.Warningf("bad device info param %v value %v", paramName, diValue)
 		} else {
@@ -82,7 +89,7 @@ func (di *DeviceInfo) checkParamFits(params map[string]string, paramName string)
 		}
 	}
 
-	return false
+	return codes.InvalidArgument
 }
 
 func (di *DeviceInfo) checkParamExists(params map[string]string, name string) bool {
@@ -106,49 +113,50 @@ func (di *DeviceInfo) checkParamExists(params map[string]string, name string) bo
 	return true
 }
 
-func (di *DeviceInfo) checkParam(params map[string]string, name string) bool {
+func (di *DeviceInfo) checkParam(params map[string]string, name string) codes.Code {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
 	paramValue, ok := params[name]
 	if !ok {
 		klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' not passed", di.ID, name)
-		return false
+		return codes.InvalidArgument
 	}
 	deviceValue, ok := di.Parameters[name]
 	if !ok {
 		klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' doesn't exist", di.ID, name)
-		return false
+		return codes.InvalidArgument
 	}
 	if deviceValue != paramValue {
 		klog.V(5).Infof("DeviceInfo.Match: device: %s: parameter '%s' mismatch: device: '%s', param: '%s'", di.ID, name, deviceValue, paramValue)
-		return false
+		return codes.OutOfRange
 	}
-	return true
+	return codes.OK
 }
 
-func (di *DeviceInfo) checkParams(params map[string]string, requiredParams []string) bool {
+func (di *DeviceInfo) checkParams(params map[string]string, requiredParams []string) codes.Code {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
 	for _, name := range requiredParams {
-		if !di.checkParam(params, name) {
-			return false
+		if code := di.checkParam(params, name); code != codes.OK {
+			return code
 		}
 	}
-	return true
+	return codes.OK
 }
 
 // Match compares passed parameters with device parameters
-func (di *DeviceInfo) Match(params map[string]string) bool {
+func (di *DeviceInfo) Match(params map[string]string) codes.Code {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
-	if di.checkParams(params, CommonRequiredParameters) {
+	code := codes.OK
+	if code = di.checkParams(params, CommonRequiredParameters); code == codes.OK {
 		return devManager.checkParams(di, params)
 	}
 
-	return false
+	return code
 }
 
 // Marshall writes device info in CDI JSON format
@@ -216,7 +224,7 @@ func NewDeviceManager(nodeID string) (*DeviceManager, error) {
 	return devManager, nil
 }
 
-func (dm *DeviceManager) checkParams(di *DeviceInfo, params map[string]string) bool {
+func (dm *DeviceManager) checkParams(di *DeviceInfo, params map[string]string) codes.Code {
 	if klog.V(5) {
 		defer klog.Info(common.Etrace("-> ") + " ->")
 	}
@@ -224,7 +232,7 @@ func (dm *DeviceManager) checkParams(di *DeviceInfo, params map[string]string) b
 	if ok {
 		return dtm.checkParams(di, params)
 	}
-	return false
+	return codes.InvalidArgument
 }
 
 // GetDevice returns DeviceInfo by device ID

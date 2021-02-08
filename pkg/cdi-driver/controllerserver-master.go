@@ -133,7 +133,7 @@ func (cs *MasterController) findDeviceNode(volumeID string) (string, error) {
 }
 
 // findDevice finds devices satisfying CreateVolumeRequest and its topology info
-func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.DeviceInfo, []*csi.Topology, *string, error) {
+func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.DeviceInfo, []*csi.Topology, *string, codes.Code) {
 	klog.V(5).Infof("masterController.findDevice: request: %+v", req)
 	// Collect topology requests
 	reqTopology := []*csi.Topology{}
@@ -146,9 +146,11 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 
 	// Find device satisfying request parameters
 	chosenDevices := map[string]*dmanager.DeviceInfo{}
+	exhaustedDevices := map[string]*dmanager.DeviceInfo{}
 	for nodeID, devices := range cs.devicesByNodes {
 		for _, device := range devices {
-			if device.Match(req.Parameters) {
+			switch device.Match(req.Parameters) {
+			case codes.OK:
 				// if there is no topology constraint requested
 				// first found device is OK
 				if len(reqTopology) == 0 {
@@ -159,13 +161,17 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 								cs.driverTopologyKey: nodeID,
 							},
 						},
-					}, &nodeID, nil
+					}, &nodeID, codes.OK
 				}
 				chosenDevices[nodeID] = device
+
+			case codes.ResourceExhausted:
+				exhaustedDevices[nodeID] = device
 			}
 		}
 	}
 
+	code := codes.NotFound
 	klog.V(5).Infof("masterController.findDevice: chosenDevices now %v", chosenDevices)
 
 	// choose device satisfying topology request
@@ -179,7 +185,10 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 						cs.driverTopologyKey: node,
 					},
 				},
-			}, &node, nil
+			}, &node, codes.OK
+		}
+		if _, ok := exhaustedDevices[node]; ok {
+			code = codes.ResourceExhausted
 		}
 	}
 
@@ -191,11 +200,11 @@ func (cs *MasterController) findDevice(req *csi.CreateVolumeRequest) (*dmanager.
 					cs.driverTopologyKey: nodeID,
 				},
 			},
-		}, &nodeID, nil
+		}, &nodeID, codes.OK
 	}
 
-	klog.V(5).Infof("masterController.findDevice: request: %+v: device not found", req)
-	return nil, nil, nil, fmt.Errorf("no device found")
+	klog.V(5).Infof("masterController.findDevice: request: %+v: device not found, code %v", req, code)
+	return nil, nil, nil, code
 }
 
 // CreateVolume is a CSI API call that creates new CSI volume
@@ -226,9 +235,9 @@ func (cs *MasterController) CreateVolume(ctx context.Context, req *csi.CreateVol
 	cs.mutex.Lock()
 	defer cs.mutex.Unlock()
 
-	device, topology, node, err := cs.findDevice(req)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
+	device, topology, node, code := cs.findDevice(req)
+	if code != codes.OK {
+		return nil, status.Error(code, "device search failed")
 	}
 
 	volume := &csi.Volume{
